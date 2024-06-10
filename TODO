@@ -1,0 +1,15 @@
+Version 0.2
+ - NetCDF4 groups and UDTs
+ - var.get.nc with fitnum == TRUE
+ - Write NetCDF files
+
+
+Future
+ - Analyze if sources belong together
+ - Select slice of data with `[`, tidyverse style
+ - More CF
+ - Testing
+
+
+THREDDS
+https://thredds.aoos.org/thredds/dodsC/AOOS_GAK_ROMS_BGC_V2_MONTHLY_DIAG.nc
