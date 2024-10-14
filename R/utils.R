@@ -1,3 +1,10 @@
+# Standard names used for parametric Z axes
+Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
+  "atmosphere_sigma_coordinate", "atmosphere_hybrid_sigma_pressure_coordinate",
+  "atmosphere_hybrid_height_coordinate", "atmosphere_sleve_coordinate",
+  "ocean_sigma_coordinate", "ocean_s_coordinate", "ocean_s_coordinate_g1",
+  "ocean_s_coordinate_g2", "ocean_sigma_z_coordinate", "ocean_double_sigma_coordinate")
+
 #' Make a data.frame slimmer by shortening long strings. List elements are
 #' pasted together.
 #'
@@ -5,9 +12,9 @@
 #' @param width Maximum width of character entries. If entries are longer than
 #' width - 3, they are truncated and then '...' added.
 #'
-#' @returns data.frame with slim columns
+#' @return data.frame with slim columns
 #' @noRd
-.slim.data.frame <- function(df, width = globals$df_column_width) {
+.slim.data.frame <- function(df, width = 50) {
   maxw <- width - 3
   out <- as.data.frame(lapply(df, function(c) {
     if (is.list(c)) c <- sapply(c, paste0, collapse = ", ")
@@ -21,6 +28,45 @@
   out
 }
 
-ignore_unused_imports <- function() {
+.cache_dir <- function() {
+  if (as.integer(R.version$major) >= 4)
+    tools::R_user_dir("ncdfCF", "cache")
+  else {
+    if (nzchar(p <- Sys.getenv("R_USER_CACHE_DIR"))) p
+    else if (nzchar(p <- Sys.getenv("XDG_CACHE_HOME"))) p
+    else if (.Platform$OS.type == "windows") file.path(Sys.getenv("LOCALAPPDATA"), "R", "cache")
+    else if (Sys.info()["sysname"] == "Darwin") file.path(normalizePath("~"), "Library", "Caches", "org.R-project.R")
+    else file.path(normalizePath("~"), ".cache")
+  }
+}
+
+# Update or set the "history" attribute in a data.frame of attributes
+.make_history <- function(atts, history) {
+  h <- atts[atts$name == "history", "value"]
+  if (length(h)) {
+    h <- paste0(history, "; ", h)
+    atts[atts$name == "history", "value"] <- h
+    atts[atts$name == "history", "length"] <- nchar(h)
+  } else
+    atts <- rbind(atts, data.frame(id = max(atts$id) + 1L, name = "history", type = "NC_CHAR", length = nchar(h), value = h))
+  atts
+}
+
+unused_imports <- function() {
   stringr::word
 }
+
+# sysdata.rda
+# ===========
+# The internal data file contains the following objects:
+# * epsg_uom - EPSG unit-of-measure information
+# * epsg_pm - EPSG prime meridian information
+# * epsg_ell - EPSG ellipsoid information
+# * epsg_datum - EPSG datum information
+#
+# All EPSG objects are taken from EPSG database v11.017, with deprecated records
+# dropped, as well as informational attributes. The PostgreSQL database is used
+# with tables exported to csv and then imported into R as data.frames. Columns
+# with numerical data and NULLs come out as character so they need to be
+# converted to the right type.
+#

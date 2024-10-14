@@ -1,15 +1,48 @@
-Version 0.2
- - NetCDF4 groups and UDTs
- - var.get.nc with fitnum == TRUE
- - Write NetCDF files
+Every release
+ - Update README, vignettes
+ - Update links
+ - Any changes to CFtime? If so, release CFtime first
 
+Every push to GitHub
+ - Check the FIXMEs
+ - Run document()
+ - Run check()!
+
+Next version
+ - Fix auxll caching when same aoi is set
+ - Labels, in .makeCoordinates
+ - crossing the dateline: subset() and AOI -> https://github.com/r-spatial/stars/issues/700
+ - CFAxisVertical calculate grids
+ - Collect non-standrad evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
+      * dimension without NC variable, axis designation from name, CRS without grid_mapping when not lat-long
+ - Testing
+ - Set CRS, axis designations, etc in CFVariable and/or CFData, flag `isDirty` field in CFObject
+ - CFData set units of data
+ - Much more documentation, feature matrix, CF Conventions in R
+ - GridMapping with methods to query CRS elements
 
 Future
- - Analyze if sources belong together
+ - tapply straight from resource
+ - Write NetCDF files
+ - remove axes from bounds dimids
+ - Analyze if sources belong together -> aggregation in CF terms
  - Select slice of data with `[`, tidyverse style
- - More CF
- - Testing
+ - THREDDS catalog
+ - DSG
+ - MODIS binned L3
 
+Notes:
+ - CF objects should never read (or write) data themselves. The underlying NC
+ objects could be in groups other than the CF object, such as ancillary CVs or
+ formula terms. Pass the read/write request off to the respective NC object instead
 
 THREDDS
 https://thredds.aoos.org/thredds/dodsC/AOOS_GAK_ROMS_BGC_V2_MONTHLY_DIAG.nc
+https://opendap1.nodc.no/opendap/physics/point/cruise/nansen_legacy-single_profile/NMDC_Nansen-Legacy_PR_CT_58US_2021708/CTD_station_P1_NLEG01-1_-_Nansen_Legacy_Cruise_-_2021_Joint_Cruise_2-1.nc
+Ocean data ROMS: http://dap.saeon.ac.za/thredds/dodsC/SAEON.EGAGASINI/2019.Penven/DAILY_MEANS/1_12_degree/roms_avg_Y2014M11.nc.1
+https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/uv3z  #?depth[0:1:39],lat[0:1:4250],lon[0:1:4499],time[0:1:16568],tau[0:1:16568],water_u[0:1:0][0:1:0][0:1:0][0:1:0],water_v[0:1:0][0:1:0][0:1:0][0:1:0]
+"https://thredds.met.no/thredds/dodsC/metpparchivev3/2020/01/01/met_analysis_1_0km_nordic_20200101T00Z.nc?x[663:1:674],y[732:1:750],latitude[732:1:750][663:1:674],longitude[732:1:750][663:1:674],altitude[732:1:750][663:1:674],air_temperature_2m[0:1:0][732:1:750][663:1:674]"
+(http://thredds.northwestknowledge.net:8080/thredds/catalog/MET/climatologies/monthlyClimatologies/catalog.html)
+
+STANDARD NAMES
+https://cfconventions.org/Data/cf-standard-names/current/src/cf-standard-name-table.xml
