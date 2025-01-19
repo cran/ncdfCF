@@ -6,11 +6,10 @@
 \title{Longitude CF axis object}
 \description{
 This class represents a longitude axis. Its values are numeric.
-This class is used for axes that represent longitudes.
-
-This class adds some logic that is specific to longitudes, such as their
-range, orientation and their meaning. (In the near future, it will also
-support selecting data that crosses the 0-360 degree boundary.)
+This class is used for axes that represent longitudes. This class adds some
+logic that is specific to longitudes, such as their range, orientation and
+their meaning. (In the near future, it will also support selecting data
+that crosses the 0-360 degree boundary.)
 }
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisLongitude}
@@ -35,6 +34,8 @@ support selecting data that crosses the 0-360 degree boundary.)
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxisNumeric" data-id="brief"><a href='../../ncdfCF/html/CFAxisNumeric.html#method-CFAxisNumeric-brief'><code>ncdfCF::CFAxisNumeric$brief()</code></a></span></li>
@@ -71,10 +72,9 @@ Create a new instance of this class.
 \if{html}{\out{<a id="method-CFAxisLongitude-sub_axis"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisLongitude-sub_axis}{}}}
 \subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range.
-
-This method returns an axis which spans the range of indices given by
-the \code{rng} argument.
+Return an axis spanning a smaller dimension range. This
+method returns an axis which spans the range of indices given by the
+\code{rng} argument.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisLongitude$sub_axis(group, rng = NULL)}\if{html}{\out{</div>}}
 }
@@ -90,10 +90,11 @@ axis.}
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{CFAxisLongitude} covering the indicated range of indices. If
-the \code{rng} argument includes only a single value, an \link{CFAxisScalar}
-instance is returned with the value from this axis. If the value of the
-argument is \code{NULL}, return the entire axis (possibly as a scalar axis).
+A \code{CFAxisLongitude} instance covering the indicated range of
+indices. If the \code{rng} argument includes only a single value, an
+\link{CFAxisScalar} instance is returned with the value from this axis. If
+the value of the argument is \code{NULL}, return the entire axis (possibly
+as a scalar axis).
 }
 }
 \if{html}{\out{<hr>}}

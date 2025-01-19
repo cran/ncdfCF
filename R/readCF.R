@@ -22,8 +22,7 @@
 #' fn <- system.file("extdata",
 #'   "pr_day_EC-Earth3-CC_ssp245_r1i1p1f1_gr_20230101-20231231_vncdfCF.nc",
 #'   package = "ncdfCF")
-#' ds <- open_ncdf(fn)
-#' ds
+#' (ds <- open_ncdf(fn))
 open_ncdf <- function(resource, keep_open = FALSE) {
   # Parameter check
   if (length(resource) != 1L && !is.character(resource))
@@ -47,12 +46,26 @@ open_ncdf <- function(resource, keep_open = FALSE) {
   # Identify axes: NUG coordinate variables
   axes <- .buildAxes(root, list())
 
-  # Mop up any non-CV dimensions - additional to CF Conventions
+  # Find the id's of any "bounds" variables
+  bnds <- sapply(root$NCvars, function(v) {
+    nm <- v$attribute("bounds")
+    if (nzchar(nm)) {
+      obj <- v$group$find_by_name(nm, "NC")
+      if (is.null(obj)) {
+        # FIXME: warning
+        -1L
+      } else obj$dimids[1L] # By definition, bounds dimid comes first
+    } else -1L # Flag no bounds
+  })
+  if (length(bnds))
+    bnds <- unique(bnds[which(bnds > -1L)])
+
+  # Mop up any non-CV dimensions except bounds - additional to CF Conventions
   all_axis_dims <- sapply(axes, function(x) x$dimid)
   all_axis_dims <- all_axis_dims[!is.na(all_axis_dims)]
   all_var_dims <- unique(unlist(sapply(root$NCvars, function(v) v$dimids)))
   all_var_dims <- all_var_dims[!is.na(all_var_dims)]
-  add_dims <- all_var_dims[!(all_var_dims %in% all_axis_dims)]
+  add_dims <- all_var_dims[!(all_var_dims %in% c(all_axis_dims, bnds))]
   if (length(add_dims)) {
     axes <- append(axes, .addBareDimensions(root, add_dims))
     names(root$CFaxes) <- sapply(root$CFaxes, function(x) x$name)
@@ -65,12 +78,68 @@ open_ncdf <- function(resource, keep_open = FALSE) {
   # Coordinate reference systems
   .makeCRS(root)
 
-  # Identify variables
-  if (length(axes) > 0L)
+  if (length(axes) > 0L) {
+    # Try to identify the type of the file
+    ft <- root$attribute("featureType")
+    if (ft %in% c("point", "timeSeries", "trajectory", "profile",
+                  "timeSeriesProfile", "trajectoryProfile"))
+      ds$file_type <- "discrete sampling geometry"
+
+    # CMIP6, CMIP5, CORDEX
+
     vars <- .buildVariables(root, axes)
+  } else {
+    # Try L3b
+    units <- root$attribute("units")
+    if (nzchar(units)) {
+      units <- strsplit(units, ":")[[1L]]
+
+      l3bgrp <- root$subgroups[["level-3_binned_data"]]
+      if (!is.null(l3bgrp)) {
+        nm <- names(l3bgrp$NCvars)
+        if (all(c("BinList", "BinIndex", units[1L]) %in% nm)) {
+          ds$file_type <- "NASA level-3 binned data"
+          l3bgrp$CFvars <- list(CFVariableL3b$new(l3bgrp, units))
+          names(l3bgrp$CFvars) <- units[1L]
+        }
+      }
+    }
+  }
 
   ds$root <- root
   ds
+}
+
+#' Examine a netCDF resource
+#'
+#' This function will read a netCDF resource and return a list of identifying
+#' information, including data variables, axes and global attributes. Upon
+#' returning the netCDF resource is closed.
+#'
+#' If you find that you need other information to be included in the result,
+#' open an issue: https://github.com/pvanlaake/ncdfCF/issues.
+#'
+#' @param resource The name of the netCDF resource to open, either a local file
+#'   name or a remote URI.
+#'
+#' @return A list with elements "variables", "axes" and global "attributes",
+#' each a `data.frame`.
+#' @export
+#' @examples
+#' fn <- system.file("extdata",
+#'   "pr_day_EC-Earth3-CC_ssp245_r1i1p1f1_gr_20230101-20231231_vncdfCF.nc",
+#'   package = "ncdfCF")
+#' peek_ncdf(fn)
+peek_ncdf <- function(resource) {
+  ds <- open_ncdf(resource)
+  grps <- ds$has_subgroups()
+  if (inherits(ds, "CFDataset")) {
+    list(uri = ds$uri,
+         type = ds$file_type,
+         variables  = do.call(rbind, lapply(ds$variables(), function(v) v$peek(grps))),
+         axes       = do.call(rbind, lapply(ds$axes(), function(a) a$peek(grps))),
+         attributes = ds$attributes())
+  } else list()
 }
 
 #' Read a group from a netCDF dataset
@@ -160,6 +229,7 @@ open_ncdf <- function(resource, keep_open = FALSE) {
     local_vars <- grp$NCvars[dim_names]
     local_CVs <- local_vars[lengths(local_vars) > 0L]
     axes <- lapply(local_CVs, function(v) .makeAxis(grp, v, visible_dims[[v$name]]))
+
     grp$CFaxes <- append(grp$CFaxes, unlist(axes))
   } else axes <- list()
 
@@ -266,7 +336,7 @@ open_ncdf <- function(resource, keep_open = FALSE) {
 # dimension is defined.
 #
 # Argument `grp` is the current group to scan, `add_dims` is a vector of
-# dimension ids for which a discrete axis must be created because variables
+# dimension ids for which a discrete axis must be created because NC variables
 # refer to the dimension.
 .addBareDimensions <- function(grp, add_dims) {
   if (length(grp$NCdims) > 0L) {
@@ -333,10 +403,14 @@ open_ncdf <- function(resource, keep_open = FALSE) {
 #'
 #' NC variables are scanned for a "coordinates" attribute (which must be a data
 #' variable, domain variable or geometry container variable). The NC variable
-#' referenced is converted into a scalar coordinate variable in the group where
-#' its NC variable is located, or into a long-lat auxiliary coordinate variable
-#' when both a longitude and latitude NC variable are found, in the group of the
-#' longitude NC variable.
+#' referenced is converted into one of 3 objects, depending on context:
+#' 1. A scalar coordinate variable in the group where its NC variable is
+#' located;
+#' 2. A label variable in the group where its NC variable is located; multiple
+#' label coordinates (such as in the case of taxon name and identifier) are
+#' stored in a single label variable;
+#' 3. A long-lat auxiliary coordinate variable when both a longitude and
+#' latitude NC variable are found, in the group of the longitude NC variable.
 #'
 #' @param grp The group to scan.
 #'
@@ -369,6 +443,12 @@ open_ncdf <- function(resource, keep_open = FALSE) {
               scalar <- CFAxisScalar$new(aux$group, aux, orient, val)
               scalar$bounds <- .readBounds(aux$group, bounds)
               aux$group$CFaxes[[aux$name]] <- scalar
+            } else if (aux$vtype %in% c("NC_CHAR", "NC_STRING")) {
+              # Label
+              val <- try(RNetCDF::var.get.nc(grp$handle, aux$name), silent = TRUE)
+              if (inherits(val, "try-error")) val <- NULL
+              dim <- grp$find_dim_by_id(aux$dimids[length(aux$dimids)]) # If there are 2 dimids, the first is a string length for a NC_CHAR type
+              aux$group$CFlabels[[aux$name]] <- CFLabel$new(aux$group, aux, dim, val)
             } else {
               if (!all(aux$dimids %in% vdimids) || nd > 2L)
                 warning("Unmatched `coordinates` value '", coords[cid], "' found in variable '", v$name, "'", call. = FALSE)
@@ -436,13 +516,17 @@ open_ncdf <- function(resource, keep_open = FALSE) {
 }
 
 # Utility function to read bounds values
+# grp - the current group being processed
+# bounds - the name of the "bounds" variable, or NULL if no bounds present
+# axis_dims - number of axes on the coordinate variable; usually 1 but could be
+# 2 on an auxiliary coordinate variable
 .readBounds <- function(grp, bounds, axis_dims = 1L) {
   if (is.null(bounds)) NULL
   else {
     NCbounds <- grp$find_by_name(bounds, "NC")
     if (is.null(NCbounds)) NULL
     else {
-      bnds <- try(RNetCDF::var.get.nc(grp$handle, bounds, collapse = FALSE), silent = TRUE)
+      bnds <- try(RNetCDF::var.get.nc(NCbounds$group$handle, bounds, collapse = FALSE), silent = TRUE)
       if (inherits(bnds, "try-error")) NULL
       else {
         if (length(dim(bnds)) == 3L && axis_dims == 1L) { # Never seen more dimensions than this
@@ -474,10 +558,15 @@ open_ncdf <- function(resource, keep_open = FALSE) {
         ax <- vector("list", v$ndims)
         for (x in 1:v$ndims) {
           ndx <- which(sapply(xids, function(e) v$dimids[x] %in% e))
+          if (!length(ndx)) {
+            warning(paste0("Possible variable '", v$name, "' cannot be constructed because of unknown axis identifier ", v$dimids[x]))
+            # FIXME
+            return(NULL)
+          }
           ax[[x]] <- axes[[ndx]]
         }
         names(ax) <- sapply(ax, function(x) x$name)
-        var <- CFVariable$new(grp, v, ax)
+        var <- CFVariableGeneric$new(grp, v, ax)
 
         # Add references to any "coordinates" of the variable
         varLon <- varLat <- NULL
@@ -485,9 +574,19 @@ open_ncdf <- function(resource, keep_open = FALSE) {
           coords <- strsplit(coords, " ", fixed = TRUE)[[1L]]
           for (cid in seq_along(coords)) {
             aux <- grp$find_by_name(coords[cid], "CF")
-            if (!is.null(aux) && inherits(aux, "CFAxisScalar"))
-              var$axes[[aux$name]] <- aux
-            else {
+            if (!is.null(aux)) {
+              clss <- class(aux)[1L]
+              if (clss == "CFAxisScalar")
+                var$axes[[aux$name]] <- aux
+              else if (clss == "CFLabel") {
+                ndx <- which(sapply(ax, function(x) x$dimid == aux$dimid))
+                if (length(ndx)) ax[[ndx]]$labels <- aux
+                else {  # FIXME: record warning
+                }
+              } else {
+                # FIXME: Record warning
+              }
+            } else {
               aux <- grp$find_by_name(coords[cid], "NC")
               if (!is.null(aux)) {
                 units <- aux$attribute("units")

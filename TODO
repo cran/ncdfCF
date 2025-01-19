@@ -1,5 +1,5 @@
 Every release
- - Update README, vignettes
+ - Update NEWS, README, vignettes
  - Update links
  - Any changes to CFtime? If so, release CFtime first
 
@@ -9,33 +9,35 @@ Every push to GitHub
  - Run check()!
 
 Next version
+ - Support more manipulation on attributes: add, merge, delete
  - Fix auxll caching when same aoi is set
- - Labels, in .makeCoordinates
+ - CFData merge multiple instances.
  - crossing the dateline: subset() and AOI -> https://github.com/r-spatial/stars/issues/700
  - CFAxisVertical calculate grids
  - Collect non-standrad evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
       * dimension without NC variable, axis designation from name, CRS without grid_mapping when not lat-long
  - Testing
- - Set CRS, axis designations, etc in CFVariable and/or CFData, flag `isDirty` field in CFObject
- - CFData set units of data
- - Much more documentation, feature matrix, CF Conventions in R
+ - Set CRS, axis designations, units, etc in CFVariable and/or CFData, flag `isDirty` field in CFObject
+ - Feature matrix, CF Conventions in R
  - GridMapping with methods to query CRS elements
 
 Future
+ - CFVariable$subset(subset, resample, method, closed): subset geeft bounds along each axis,
+ resample is resolution in every axis direction, method in (nn, linear), closed also per axis. See SciPy::interpn
  - tapply straight from resource
  - Write NetCDF files
- - remove axes from bounds dimids
  - Analyze if sources belong together -> aggregation in CF terms
  - Select slice of data with `[`, tidyverse style
  - THREDDS catalog
  - DSG
- - MODIS binned L3
 
 Notes:
  - CF objects should never read (or write) data themselves. The underlying NC
  objects could be in groups other than the CF object, such as ancillary CVs or
  formula terms. Pass the read/write request off to the respective NC object instead
 
+INTERESTING DATA
+Sentinel5p: "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/starsdata/sentinel5p/S5P_NRTI_L2__NO2____20180717T120113_20180717T120613_03932_01_010002_20180717T125231.nc"
 THREDDS
 https://thredds.aoos.org/thredds/dodsC/AOOS_GAK_ROMS_BGC_V2_MONTHLY_DIAG.nc
 https://opendap1.nodc.no/opendap/physics/point/cruise/nansen_legacy-single_profile/NMDC_Nansen-Legacy_PR_CT_58US_2021708/CTD_station_P1_NLEG01-1_-_Nansen_Legacy_Cruise_-_2021_Joint_Cruise_2-1.nc

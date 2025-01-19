@@ -7,12 +7,12 @@
 \description{
 This class represents a parametric vertical axis. It is defined
 through an index value that is contained in the axis, with additional
-\link{NCVariable}s that hold ancillary data with which to calculate dimensional
-axis values. It is used in atmosphere and ocean data sets. Non-parametric
-vertical axes are stored in an \link{CFAxisNumeric}.
+\link{NCVariable} instances that hold ancillary data with which to calculate
+dimensional axis values. It is used in atmosphere and ocean data sets.
+Non-parametric vertical axes are stored in an \link{CFAxisNumeric} instance.
 }
 \references{
-https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#parametric-vertical-coordinate
+https://cfconventions.org/Data/cf-conventions/cf-conventions-1.12/cf-conventions.html#parametric-vertical-coordinate
 }
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisVertical}
@@ -23,7 +23,8 @@ https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions
 \item{\code{parameter_name}}{The 'standard_name' attribute of the \link{NCVariable}
 that identifies the parametric form of this axis.}
 
-\item{\code{computed_name}}{The standard name for the computed values of the axis.}
+\item{\code{computed_name}}{The standard name for the computed values of the
+axis.}
 
 \item{\code{computed_units}}{The unit of the computed values of the axis.}
 }
@@ -34,7 +35,7 @@ that identifies the parametric form of this axis.}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{formula_terms}}{(read-only) A \code{data.frame} with the "formula_terms"
+\item{\code{formula_terms}}{A \code{data.frame} with the "formula_terms"
 to calculate the parametric axis values.}
 
 \item{\code{dimnames}}{(read-only) The coordinates of the axis.}
@@ -53,6 +54,8 @@ to calculate the parametric axis values.}
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxisNumeric" data-id="brief"><a href='../../ncdfCF/html/CFAxisNumeric.html#method-CFAxisNumeric-brief'><code>ncdfCF::CFAxisNumeric$brief()</code></a></span></li>

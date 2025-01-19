@@ -3,14 +3,11 @@
 \docType{class}
 \name{CFAxisDiscrete}
 \alias{CFAxisDiscrete}
-\title{Find indices in the axis domain}
+\title{CF discrete axis object}
 \description{
 This class represent discrete CF axes, i.e. those axes whose
-coordinate values do not represent a physical or categorical property. The
-coordinate values are ordinal values equal to the index into the axis.
-}
-\details{
-CF discrete axis object
+coordinate values do not represent a physical property. The coordinate
+values are ordinal values equal to the index into the axis.
 }
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{CFAxisDiscrete}
@@ -21,7 +18,7 @@ CF discrete axis object
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
 \item{\code{dimnames}}{(read-only) The coordinates of the axis as an integer
-vector.}
+vector, or labels for every axis element if they have been set.}
 }
 \if{html}{\out{</div>}}
 }
@@ -39,6 +36,8 @@ vector.}
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="print"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-print'><code>ncdfCF::CFAxis$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="sub_axis"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-sub_axis'><code>ncdfCF::CFAxis$sub_axis()</code></a></span></li>
@@ -74,7 +73,7 @@ different or unknown.}
 \if{html}{\out{<a id="method-CFAxisDiscrete-brief"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-brief}{}}}
 \subsection{Method \code{brief()}}{
-Some details of the axis
+Some details of the axis.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$brief()}\if{html}{\out{</div>}}
 }
@@ -87,9 +86,10 @@ A 1-row \code{data.frame} with some details of the axis.
 \if{html}{\out{<a id="method-CFAxisDiscrete-indexOf"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
-Given a vector of numerical values \code{x}, find their indices
-in the values of the axis. In effect, this returns index values into the
-axis, but outside values will be dropped.
+Find indices in the axis domain. Given a vector of numerical
+values \code{x}, find their indices in the values of the axis. In effect,
+this returns index values into the axis, but outside values will be
+dropped.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$indexOf(x, method = "constant")}\if{html}{\out{</div>}}
 }

@@ -9,14 +9,14 @@ NULL
 #'   objects, specifically data variables and axes. More useful classes use this
 #'   class as ancestor.
 #'
-#' @details The fields in this class are common among all CF objects.
-#'
 #' @docType class
-#'
 CFObject <- R6::R6Class("CFObject",
   public = list(
     #' @field NCvar The [NCVariable] instance that this CF object represents.
     NCvar = NULL,
+
+    #' @field group The [NCGroup] that this object is located in.
+    group = NULL,
 
     #' @description Create a new CF object instance from a variable in a netCDF
     #'   resource. This method is called upon opening a netCDF resource. It is
@@ -26,9 +26,11 @@ CFObject <- R6::R6Class("CFObject",
     #'
     #' @param nc_var The [NCVariable] instance upon which this CF object is
     #'   based.
+    #' @param group The [NCGroup] that this object is located in.
     #' @return A `CFobject` instance.
-    initialize = function(nc_var) {
+    initialize = function(nc_var, group) {
       self$NCvar <- nc_var
+      self$group <- group
     },
 
     #' @description Retrieve attributes of any CF object.
@@ -36,18 +38,23 @@ CFObject <- R6::R6Class("CFObject",
     #' @param att Vector of character strings of attributes to return.
     #' @param field The field of the `data.frame` to return values from. This
     #' must be "value" (default), "type" or "length".
-    #' @return A vector of values from the `data.frame`, named with the `att`
-    #' value, `character(0)` if a name in `att` is not an attribute of this
-    #' object.
+    #' @return If the `field` argument is "type" or "length", a character vector
+    #'   named with the `att` values that were found in the attributes. If
+    #'   argument `field` is "value", a list with elements named with the `att`
+    #'   values, containing the attribute value(s), except when argument `att`
+    #'   names a single attribute, in which case that attribute value is
+    #'   returned as a character string. If no attribute is named with a value
+    #'   of argument `att` an empty list is returned, or an empty string if
+    #'   there was only one value in argument `att`.
     attribute = function(att, field = "value") {
       self$NCvar$attribute(att, field)
     },
 
-    #' @description Print the attributes of the CF object.
+    #' @description Print the attributes of the CF object to the console.
     #'
     #' @param width The maximum width of each column in the `data.frame` when
     #' printed to the console.
-    print_attributes = function(width = 50) {
+    print_attributes = function(width = 50L) {
       if (nrow(self$NCvar$attributes)) {
         cat("\nAttributes:\n")
         print(.slim.data.frame(self$NCvar$attributes, width), right = FALSE, row.names = FALSE)
@@ -74,7 +81,17 @@ CFObject <- R6::R6Class("CFObject",
         self$NCvar$name
     },
 
-    #' @field attributes (read-only) A `data.frame` with the attributes of the CF object.
+    #' @field fullname (read-only) The fully-qualified name of the CF object.
+    fullname = function(value) {
+      if (missing(value)) {
+        grp <- self$group$fullname
+        if (!(grp == "/")) grp <- paste0(grp, "/")
+        paste0(grp, self$NCvar$name)
+      }
+    },
+
+    #' @field attributes (read-only) A `data.frame` with the attributes of the
+    #'   CF object.
     attributes = function(value) {
       if (missing(value))
         self$NCvar$attributes

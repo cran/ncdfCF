@@ -16,7 +16,8 @@ longitude, latitude and vertical axes.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{value}}{The value of the axis.}
+\item{\code{value}}{The value of the axis. This could be a composite value, such
+as a \code{CFTime} instance.}
 }
 \if{html}{\out{</div>}}
 }
@@ -40,11 +41,13 @@ longitude, latitude and vertical axes.
 }
 }
 \if{html}{\out{
-<details open><summary>Inherited methods</summary>
+<details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="indexOf"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-indexOf'><code>ncdfCF::CFAxis$indexOf()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
 </ul>
@@ -68,7 +71,8 @@ Create an instance of this class.
 
 \item{\code{orientation}}{The orientation of this axis, or "" if not known.}
 
-\item{\code{value}}{The value of this axis.}
+\item{\code{value}}{The value of this axis, possibly a compound type like
+\code{CFTime}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -77,23 +81,34 @@ Create an instance of this class.
 \if{html}{\out{<a id="method-CFAxisScalar-print"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisScalar-print}{}}}
 \subsection{Method \code{print()}}{
-Summary of the scalar axis
-
-Prints a summary of the scalar axis to the console.
+Summary of the scalar axis printed to the console.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisScalar$print()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisScalar$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Ignored.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self}, invisibly.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisScalar-brief"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisScalar-brief}{}}}
 \subsection{Method \code{brief()}}{
-Retrieve a 1-row data.frame with some information on this axis.
+Some details of the axis.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisScalar$brief()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+A 1-row \code{data.frame} with some details of the axis.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisScalar-sub_axis"></a>}}

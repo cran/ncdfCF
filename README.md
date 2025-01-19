@@ -19,14 +19,15 @@ commit](https://img.shields.io/github/last-commit/pvanlaake/ncdfCF)](https://git
 <!-- badges: end -->
 
 The `ncdfCF` package provides an easy to use interface to netCDF
-resources in R, either in local files or remotely on a THREDDS server.
-It is built on the `RNetCDF` package which, like package `ncdf4`,
-provides a basic interface to the `netcdf` library, but which lacks an
-intuitive user interface. Package `ncdfCF` provides a high-level
-interface using functions and methods that are familiar to the R user.
-It reads the structural metadata and also the attributes upon opening
-the resource. In the process, the `ncdfCF` package also applies CF
-Metadata Conventions to interpret the data. This currently applies to:
+resources in R,  
+either in local files or remotely on a THREDDS server. It is built on
+the `RNetCDF` package which, like package `ncdf4`, provides a basic
+interface to the `netcdf` library, but which lacks an intuitive user
+interface. Package `ncdfCF` provides a high-level interface using
+functions and methods that are familiar to the R user. It reads the
+structural metadata and also the attributes upon opening the resource.
+In the process, the `ncdfCF` package also applies CF Metadata
+Conventions to interpret the data. This currently applies to:
 
 - The **axis designation**. The three mechanisms to identify the axis
   each dimension represents are applied until an axis is determined.
@@ -35,7 +36,9 @@ Metadata Conventions to interpret the data. This currently applies to:
   intelligible dates and times, for all 9 defined calendars.
 - **Bounds** information. When present, bounds are read and used in
   analyses.
-- **Discrete dimensions**, optionally with character labels.
+- **Discrete dimensions**, optionally with character labels. When labels
+  are provided, these will be used as `dimnames` for the axis. (Note
+  that this also applies to generic numeric axes with labels defined.)
 - **Parametric vertical coordinates** are read, including variables
   listed in the `formula_terms` attribute.
 - **Auxiliary coordinates** are identified and read. This applies to
@@ -59,13 +62,11 @@ library(ncdfCF)
 fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 
 # Open the file, all metadata is read
-ds <- open_ncdf(fn)
-
-# Easy access in understandable format to all the details
-ds
+(ds <- open_ncdf(fn))
 #> <Dataset> ERA5land_Rwanda_20160101 
-#> Resource   : /private/var/folders/gs/s0mmlczn4l7bjbmwfrrhjlt80000gn/T/RtmpUihQLG/temp_libpath68c95052b923/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc 
+#> Resource   : /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc 
 #> Format     : offset64 
+#> Type       : generic netCDF data 
 #> Conventions: CF-1.6 
 #> Keep open  : FALSE 
 #> 
@@ -103,9 +104,8 @@ names(ds)
 dimnames(ds)
 #> [1] "time"      "longitude" "latitude"
 
-# Variables can be accessed through standard list-type extraction syntax
-t2m <- ds[["t2m"]]
-t2m
+# Variables and dimensions can be accessed through standard list-type extraction syntax
+(t2m <- ds[["t2m"]])
 #> <Variable> t2m 
 #> Long name: 2 metre temperature 
 #> 
@@ -128,7 +128,6 @@ t2m
 #>  4  _FillValue    NC_SHORT   1     -32767             
 #>  5  missing_value NC_SHORT   1     -32767
 
-# Same with dimensions, but now without first attaching the object to a variable
 ds[["longitude"]]
 #> <Longitude axis> [1] longitude
 #> Length   : 31
@@ -154,6 +153,50 @@ dimnames(ds[["longitude"]]) # A dimension: vector of dimension element values
 # Access attributes
 ds[["pev"]]$attribute("long_name")
 #> [1] "Potential evaporation"
+```
+
+If you just want to inspect what data is included in the netCDF
+resource, use the `peek_ncdf()` function:
+
+``` r
+(ds <- peek_ncdf(fn))
+#> $uri
+#> [1] "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc"
+#> 
+#> $type
+#> [1] "generic netCDF data"
+#> 
+#> $variables
+#>     id name             long_name standard_name units                      axes
+#> t2m  3  t2m   2 metre temperature                   K longitude, latitude, time
+#> pev  4  pev Potential evaporation                   m longitude, latitude, time
+#> tp   5   tp   Total precipitation                   m longitude, latitude, time
+#> 
+#> $axes
+#>                     class id axis      name long_name standard_name
+#> time           CFAxisTime  0    T      time      time          time
+#> longitude CFAxisLongitude  1    X longitude longitude     longitude
+#> latitude   CFAxisLatitude  2    Y  latitude  latitude      latitude
+#>                                       units length unlimited
+#> time      hours since 1900-01-01 00:00:00.0     24      TRUE
+#> longitude                      degrees_east     31     FALSE
+#> latitude                      degrees_north     21     FALSE
+#>                                                  values has_bounds
+#> time      [2016-01-01 00:00:00 ... 2016-01-01 23:00:00]      FALSE
+#> longitude                                   [28 ... 31]      FALSE
+#> latitude                                    [-1 ... -3]      FALSE
+#> 
+#> $attributes
+#>   id        name    type length
+#> 1  0         CDI NC_CHAR     64
+#> 2  1 Conventions NC_CHAR      6
+#> 3  2     history NC_CHAR    482
+#> 4  3         CDO NC_CHAR     64
+#>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 value
+#> 1                                                                                                                                                                                                                                                                                                                                                                                                                                    Climate Data Interface version 2.4.1 (https://mpimet.mpg.de/cdi)
+#> 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              CF-1.6
+#> 3 Tue May 28 18:39:12 2024: cdo seldate,2016-01-01,2016-01-01 /Users/patrickvanlaake/CC/ERA5land/Rwanda/ERA5land_Rwanda_t2m-pev-tp_2016-2018.nc ERA5land_Rwanda_20160101.nc\n2021-12-22 07:00:24 GMT by grib_to_netcdf-2.23.0: /opt/ecmwf/mars-client/bin/grib_to_netcdf -S param -o /cache/data5/adaptor.mars.internal-1640155821.967082-25565-12-0b19757d-da4e-4ea4-b8aa-d08ec89caf2c.nc /cache/tmp/0b19757d-da4e-4ea4-b8aa-d08ec89caf2c-adaptor.mars.internal-1640142203.3196251-25565-10-tmp.grib
+#> 4                                                                                                                                                                                                                                                                                                                                                                                                                                    Climate Data Operators version 2.4.1 (https://mpimet.mpg.de/cdo)
 ```
 
 ##### Extracting data
@@ -184,24 +227,7 @@ str(ts)
 #>  - attr(*, "axis")= Named chr [1:3] "X" "Y" "T"
 #>   ..- attr(*, "names")= chr [1:3] "longitude" "latitude" "time"
 #>  - attr(*, "time")=List of 1
-#>   ..$ time:Formal class 'CFtime' [package "CFtime"] with 4 slots
-#>   .. .. ..@ datum     :Formal class 'CFdatum' [package "CFtime"] with 5 slots
-#>   .. .. .. .. ..@ definition: chr "hours since 1900-01-01 00:00:00.0"
-#>   .. .. .. .. ..@ unit      : int 3
-#>   .. .. .. .. ..@ origin    :'data.frame':   1 obs. of  8 variables:
-#>   .. .. .. .. .. ..$ year  : int 1900
-#>   .. .. .. .. .. ..$ month : num 1
-#>   .. .. .. .. .. ..$ day   : num 1
-#>   .. .. .. .. .. ..$ hour  : num 0
-#>   .. .. .. .. .. ..$ minute: num 0
-#>   .. .. .. .. .. ..$ second: num 0
-#>   .. .. .. .. .. ..$ tz    : chr "+0000"
-#>   .. .. .. .. .. ..$ offset: num 0
-#>   .. .. .. .. ..@ calendar  : chr "gregorian"
-#>   .. .. .. .. ..@ cal_id    : int 1
-#>   .. .. ..@ resolution: num 1
-#>   .. .. ..@ offsets   : num [1:24] 1016832 1016833 1016834 1016835 1016836 ...
-#>   .. .. ..@ bounds    : logi FALSE
+#>   ..$ time:Classes 'CFTime', 'R6' 2016-01-01 00:00:00 2016-01-01 01:00:00 2016-01-01 02:00:00 2016-01-01 03:00:00 2016-01-01 04:00:00 2016-01-01 05:00:00 2016-01-01 06:00:00 2016-01-01 07:00:00 2016-01-01 08:00:00 2016-01-01 09:00:00 2016-01-01 10:00:00 2016-01-01 11:00:00 2016-01-01 12:00:00 2016-01-01 13:00:00 2016-01-01 14:00:00 2016-01-01 15:00:00 2016-01-01 16:00:00 2016-01-01 17:00:00 2016-01-01 18:00:00 2016-01-01 19:00:00 2016-01-01 20:00:00 2016-01-01 21:00:00 2016-01-01 22:00:00 2016-01-01 23:00:00
 
 # Extract the full spatial extent for one time step
 ts <- t2m[, , 12]
@@ -214,24 +240,7 @@ str(ts)
 #>  - attr(*, "axis")= Named chr [1:3] "X" "Y" "T"
 #>   ..- attr(*, "names")= chr [1:3] "longitude" "latitude" "time"
 #>  - attr(*, "time")=List of 1
-#>   ..$ time:Formal class 'CFtime' [package "CFtime"] with 4 slots
-#>   .. .. ..@ datum     :Formal class 'CFdatum' [package "CFtime"] with 5 slots
-#>   .. .. .. .. ..@ definition: chr "hours since 1900-01-01 00:00:00.0"
-#>   .. .. .. .. ..@ unit      : int 3
-#>   .. .. .. .. ..@ origin    :'data.frame':   1 obs. of  8 variables:
-#>   .. .. .. .. .. ..$ year  : int 1900
-#>   .. .. .. .. .. ..$ month : num 1
-#>   .. .. .. .. .. ..$ day   : num 1
-#>   .. .. .. .. .. ..$ hour  : num 0
-#>   .. .. .. .. .. ..$ minute: num 0
-#>   .. .. .. .. .. ..$ second: num 0
-#>   .. .. .. .. .. ..$ tz    : chr "+0000"
-#>   .. .. .. .. .. ..$ offset: num 0
-#>   .. .. .. .. ..@ calendar  : chr "gregorian"
-#>   .. .. .. .. ..@ cal_id    : int 1
-#>   .. .. ..@ resolution: num NA
-#>   .. .. ..@ offsets   : num 1016843
-#>   .. .. ..@ bounds    : logi FALSE
+#>   ..$ time:Classes 'CFTime', 'R6' 2016-01-01 11:00:00
 ```
 
 Note that the results contain degenerate dimensions (of length 1). This
@@ -242,8 +251,7 @@ attributes:
 
 ``` r
 # Extract a specific region, full time dimension
-ts <- t2m$subset(list(X = 29:30, Y = -1:-2))
-ts
+(ts <- t2m$subset(list(X = 29:30, Y = -1:-2)))
 #> <Data> t2m 
 #> Long name: 2 metre temperature 
 #> 
@@ -272,10 +280,9 @@ ts
 # Extract specific time slices for a specific region
 # Note that the dimensions are specified out of order and using alternative
 # specifications: only the extreme values are used.
-ts <- t2m$subset(list(T = c("2016-01-01 09:00", "2016-01-01 15:00"),
-                      X = c(29.6, 28.8),
-                      Y = seq(-2, -1, by = 0.05)))
-ts
+(ts <- t2m$subset(list(T = c("2016-01-01 09:00", "2016-01-01 15:00"),
+                       X = c(29.6, 28.8),
+                       Y = seq(-2, -1, by = 0.05))))
 #> <Data> t2m 
 #> Long name: 2 metre temperature 
 #> 
@@ -324,7 +331,7 @@ attributes and data from netCDF resources in “classic” and “netcdf4”
 formats. From the CF Metadata Conventions it supports identification of
 dimension axes, interpretation of the “time” dimension, name resolution
 when using groups, reading of “bounds” information, parametric vertical
-coordinates, auxiliary coordinate variables, and grid mapping
+coordinates, auxiliary coordinate variables, labels, and grid mapping
 information.
 
 Development plans for the near future focus on supporting the below

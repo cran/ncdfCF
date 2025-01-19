@@ -5,10 +5,28 @@
 #' knowledge of their nature. More specific classes descend from this class.
 #'
 #' @docType class
-#'
 #' @export
 CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
   inherit = CFAxis,
+  private = list(
+    dimvalues_short = function() {
+      lbls <- self$labels
+      nv <- length(self$values)
+      if (!length(lbls)) {
+        if (nv == 1L)
+          dims <- sprintf("[%s]", gsub(" ", "", formatC(self$values[1L], digits = 8L)))
+        else {
+          vals <- trimws(formatC(c(self$values[1L], self$values[nv]), digits = 8L))
+          dims <- sprintf("[%s ... %s]", vals[1L], vals[2L])
+        }
+      } else {
+        lbls <- lbls[[1L]]$values
+        if (nv == 1L) dims <- paste0("[", lbls[1L], "]")
+        else dims <- paste0("[", lbls[1L], " ... ", lbls[length(lbls)], "]")
+      }
+      dims
+    }
+  ),
   public = list(
     #' @field values The values of the axis, usually a numeric vector.
     values     = NULL,
@@ -25,21 +43,32 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       self$values <- values
     },
 
-    #' @description Summary of the time axis
-    #'
-    #' Prints a summary of the time axis to the console.
-    print = function() {
+    #' @description Summary of the time axis printed to the console.
+    #' @param ... Ignored.
+    #' @return `self`, invisibly.
+    print = function(...) {
       super$print()
 
       units <- self$attribute("units")
       if (!nzchar(units)) units <- ""
+      if (units == "1") units <- ""
+
+      lbls <- self$labels
       len <- length(self$values)
-      if (len < 7L) {
-        vals <- trimws(formatC(self$values, digits = 8L))
-        cat("Values   : ", paste(vals, collapse = ", "), " ", units, "\n", sep = "")
+      if (length(lbls)) {
+        lbls <- lbls[[1L]]$values
+        if (len < 5L)
+          cat("Values   : ", paste(lbls, collapse = ", "), "\n", sep = "")
+        else
+          cat("Values   : ", lbls[1L], ", ", lbls[2L], " ... ", lbls[len - 1L], ", ", lbls[len], "\n", sep = "")
       } else {
-        vals <- trimws(formatC(c(self$values[1L:3L], self$values[(len-2):len], digits = 8L)))
-        cat("Values   : ", vals[1L], ", ", vals[2L], ", ", vals[3L], " ... ", vals[4L], ", ", vals[5L], ", ", vals[6L], " ", units, "\n", sep = "")
+        if (len < 7L) {
+          vals <- trimws(formatC(self$values, digits = 8L))
+          cat("Values   : ", paste(vals, collapse = ", "), " ", units, "\n", sep = "")
+        } else {
+          vals <- trimws(formatC(c(self$values[1L:3L], self$values[(len-2):len], digits = 8L)))
+          cat("Values   : ", vals[1L], ", ", vals[2L], ", ", vals[3L], " ... ", vals[4L], ", ", vals[5L], ", ", vals[6L], " ", units, "\n", sep = "")
+        }
       }
 
       if (!is.null(self$bounds))
@@ -49,19 +78,12 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       self$print_attributes()
     },
 
-    #' @description Retrieve a 1-row `data.frame` with some information on this axis.
+    #' @description Some details of the axis.
+    #'
+    #' @return A 1-row `data.frame` with some details of the axis.
     brief = function() {
       out <- super$brief()
-
-      nv <- length(self$values)
-      if (nv == 1L)
-        dims <- sprintf("[%s]", gsub(" ", "", formatC(self$values[1L], digits = 8L)))
-      else {
-        vals <- trimws(formatC(c(self$values[1L], self$values[nv]), digits = 8L))
-        dims <- sprintf("[%s ... %s]", vals[1L], vals[2L])
-      }
-
-      out$values <- dims
+      out$values <- private$dimvalues_short()
       out
     },
 
@@ -90,19 +112,19 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       as.integer(idx)
     },
 
-    #' @description Return an axis spanning a smaller dimension range.
-    #'
-    #'   This method returns an axis which spans the range of indices given by
-    #'   the `rng` argument.
+    #' @description Return an axis spanning a smaller dimension range. This
+    #'   method returns an axis which spans the range of indices given by the
+    #'   `rng` argument.
     #'
     #' @param group The group to create the new axis in.
     #' @param rng The range of values from this axis to include in the returned
     #'   axis.
     #'
-    #' @return A `CFAxisNumeric` covering the indicated range of indices. If
-    #'   the `rng` argument includes only a single value, an [CFAxisScalar]
-    #'   instance is returned with the value from this axis. If the value of the
-    #'   argument is `NULL`, return the entire axis (possibly as a scalar axis).
+    #' @return A `CFAxisNumeric` instance covering the indicated range of
+    #'   indices. If the `rng` argument includes only a single value, an
+    #'   [CFAxisScalar] instance is returned with the value from this axis. If
+    #'   the value of the argument is `NULL`, return the entire axis (possibly
+    #'   as a scalar axis).
     sub_axis = function(group, rng = NULL) {
       var <- NCVariable$new(-1L, self$name, group, "NC_DOUBLE", 1L, NULL)
 
@@ -142,10 +164,12 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
     },
 
     #' @field dimnames (read-only) The coordinates of the axis as a numeric
-    #' vector.
+    #' vector, or labels for every axis element if they have been set.
     dimnames = function(value) {
-      if (missing(value))
-        self$values
+      if (missing(value)) {
+        if (length(self$lbls)) self$lbls[[1L]]$values
+        else round(self$values, 6L)
+      }
     }
   )
 )

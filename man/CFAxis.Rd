@@ -3,15 +3,10 @@
 \docType{class}
 \name{CFAxis}
 \alias{CFAxis}
-\title{Find indices in the axis domain}
+\title{CF axis object}
 \description{
 This class is a basic ancestor to all classes that represent CF
 axes. More useful classes use this class as ancestor.
-}
-\details{
-CF axis object
-
-The fields in this class are common among all CF axis objects.
 }
 \section{Super class}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFAxis}
@@ -19,20 +14,15 @@ The fields in this class are common among all CF axis objects.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{group}}{The \link{NCGroup} that this axis is located in.}
-
 \item{\code{NCdim}}{The \link{NCDimension} that stores the netCDF dimension details.
 This is \code{NULL} for \link{CFAxisScalar} instances.}
 
 \item{\code{orientation}}{A character "X", "Y", "Z" or "T" to indicate the
 orientation of the axis, or an empty string if not known or different.}
 
-\item{\code{bounds}}{The boundary values of this axis, if set.
-Create a basic CF axis object
+\item{\code{bounds}}{The boundary values of this axis, if set.}
 
-Create a new CF axis instance from a dimension and a variable in a netCDF
-resource. This method is called upon opening a netCDF resource by the
-\code{initialize()} method of a descendant class suitable for the type of
+\item{\code{lbls}}{A list of \link{CFLabel} instances, if any are defined for the
 axis.}
 }
 \if{html}{\out{</div>}}
@@ -42,9 +32,12 @@ axis.}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{dimid}}{The netCDF dimension id of this axis.}
+\item{\code{dimid}}{(read-only) The netCDF dimension id of this axis.}
 
-\item{\code{length}}{The declared length of this axis.}
+\item{\code{length}}{(read-only) The declared length of this axis.}
+
+\item{\code{labels}}{Set or retrieve the labels for the axis. On assignment, the
+value must be an instance of \link{CFLabel}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -55,9 +48,11 @@ axis.}
 \item \href{#method-CFAxis-print}{\code{CFAxis$print()}}
 \item \href{#method-CFAxis-brief}{\code{CFAxis$brief()}}
 \item \href{#method-CFAxis-shard}{\code{CFAxis$shard()}}
+\item \href{#method-CFAxis-peek}{\code{CFAxis$peek()}}
 \item \href{#method-CFAxis-time}{\code{CFAxis$time()}}
 \item \href{#method-CFAxis-sub_axis}{\code{CFAxis$sub_axis()}}
 \item \href{#method-CFAxis-indexOf}{\code{CFAxis$indexOf()}}
+\item \href{#method-CFAxis-label_set}{\code{CFAxis$label_set()}}
 \item \href{#method-CFAxis-clone}{\code{CFAxis$clone()}}
 }
 }
@@ -73,6 +68,10 @@ axis.}
 \if{html}{\out{<a id="method-CFAxis-new"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-new}{}}}
 \subsection{Method \code{new()}}{
+Create a new CF axis instance from a dimension and a
+variable in a netCDF resource. This method is called upon opening a
+netCDF resource by the \code{initialize()} method of a descendant class
+suitable for the type of axis.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$new(grp, nc_var, nc_dim, orientation)}\if{html}{\out{</div>}}
 }
@@ -82,14 +81,13 @@ axis.}
 \describe{
 \item{\code{grp}}{The \link{NCGroup} that this axis is located in.}
 
-\item{\code{nc_var}}{The \link{NCVariable} instance upon which this CF axis is
-based.}
+\item{\code{nc_var}}{The \link{NCVariable} instance upon which this CF axis is based.}
 
 \item{\code{nc_dim}}{The \link{NCDimension} instance upon which this CF axis is
 based.}
 
-\item{\code{orientation}}{The orientation of the axis: "X", "Y", "Z" "T", or
-"" when not known or relevant.}
+\item{\code{orientation}}{The orientation of the axis: "X", "Y", "Z" "T", or ""
+when not known or relevant.}
 }
 \if{html}{\out{</div>}}
 }
@@ -101,20 +99,28 @@ A basic \code{CFAxis} object.
 \if{html}{\out{<a id="method-CFAxis-print"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-print}{}}}
 \subsection{Method \code{print()}}{
-Summary of the axis
-
-Prints a summary of the axis to the console. This method is typically
-called by the \code{print()} method of descendant classes.
+Prints a summary of the axis to the console. This method is
+typically called by the \code{print()} method of descendant classes.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$print()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Ignored.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self}, invisibly.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxis-brief"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-brief}{}}}
 \subsection{Method \code{brief()}}{
-Some details of the axis
+Some details of the axis.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$brief()}\if{html}{\out{</div>}}
 }
@@ -127,10 +133,9 @@ A 1-row \code{data.frame} with some details of the axis.
 \if{html}{\out{<a id="method-CFAxis-shard"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-shard}{}}}
 \subsection{Method \code{shard()}}{
-Very concise information on the axis
-
-The information returned by this function is very concise and most useful
-when combined with similar information from other axes.
+Very concise information on the axis. The information
+returned by this function is very concise and most useful when combined
+with similar information from other axes.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$shard()}\if{html}{\out{</div>}}
 }
@@ -140,13 +145,34 @@ Character string with very basic axis information.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-peek"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-peek}{}}}
+\subsection{Method \code{peek()}}{
+Retrieve interesting details of the axis.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$peek(with_groups = TRUE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{with_groups}}{Should group information be included? The save option
+is \code{TRUE} (default) when the netCDF resource has groups because names may
+be duplicated among objects in different groups.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A 1-row \code{data.frame} with details of the axis.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxis-time"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-time}{}}}
 \subsection{Method \code{time()}}{
-Return the \code{CFtime} instance that represents time
-
-This method is only useful for \code{CFAxisTime} instances. This stub is here
-to make the call to this method succeed with no result for the other axis
+Return the \code{CFtime} instance that represents time. This
+method is only useful for \code{CFAxisTime} instances. This stub is here to
+make the call to this method succeed with no result for the other axis
 descendants.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$time()}\if{html}{\out{</div>}}
@@ -160,9 +186,8 @@ descendants.
 \if{html}{\out{<a id="method-CFAxis-sub_axis"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-sub_axis}{}}}
 \subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range
-
-This method is "virtual" in the sense that it does not do anything other
+Return an axis spanning a smaller dimension range. This
+method is "virtual" in the sense that it does not do anything other
 than return \code{NULL}. This stub is here to make the call to this method
 succeed with no result for the other axis descendants that do not
 implement this method.
@@ -189,11 +214,11 @@ axis. If the value of the argument is \code{NULL}, return the entire axis
 \if{html}{\out{<a id="method-CFAxis-indexOf"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
-Given a vector of numerical, timestamp or categorical values
-\code{x}, find their indices in the values of the axis. With
-\code{method = "constant"} this returns the index of the value lower than the
-supplied values in \code{x}. With \code{method = "linear"} the return value
-includes any fractional part.
+Find indices in the axis domain. Given a vector of
+numerical, timestamp or categorical values \code{x}, find their indices in
+the values of the axis. With \code{method = "constant"} this returns the
+index of the value lower than the supplied values in \code{x}. With
+\code{method = "linear"} the return value includes any fractional part.
 
 If bounds are set on the numerical or time axis, the indices are taken
 from those bounds. Returned indices may fall in between bounds if the
@@ -219,8 +244,32 @@ axis.}
 Numeric vector of the same length as \code{x}. If \code{method = "constant"},
 return the index value for each match. If \code{method = "linear"}, return
 the index value with any fractional value. Values of \code{x} outside of the
-range of the values in the axis are returned as \code{0} and \code{.Machine$integer.max},
-respectively.
+range of the values in the axis are returned as \code{0} and
+\code{.Machine$integer.max}, respectively.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-label_set"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-label_set}{}}}
+\subsection{Method \code{label_set()}}{
+Retrieve a set of character labels corresponding to the
+elements of an axis. An axis can have multiple sets of labels and by
+default the first set is returned.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$label_set(index = 1L)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{index}}{An integer value indicating which set of labels to retrieve.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A character vector of string labels with as many elements as the
+axis has, or \code{NULL} when no labels have been set or when argument
+\code{index} is not valid.
 }
 }
 \if{html}{\out{<hr>}}

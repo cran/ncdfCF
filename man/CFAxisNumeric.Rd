@@ -25,7 +25,7 @@ knowledge of their nature. More specific classes descend from this class.
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
 \item{\code{dimnames}}{(read-only) The coordinates of the axis as a numeric
-vector.}
+vector, or labels for every axis element if they have been set.}
 }
 \if{html}{\out{</div>}}
 }
@@ -42,10 +42,12 @@ vector.}
 }
 }
 \if{html}{\out{
-<details open><summary>Inherited methods</summary>
+<details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
 </ul>
@@ -81,23 +83,34 @@ different or unknown.}
 \if{html}{\out{<a id="method-CFAxisNumeric-print"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-print}{}}}
 \subsection{Method \code{print()}}{
-Summary of the time axis
-
-Prints a summary of the time axis to the console.
+Summary of the time axis printed to the console.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$print()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Ignored.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self}, invisibly.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisNumeric-brief"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-brief}{}}}
 \subsection{Method \code{brief()}}{
-Retrieve a 1-row \code{data.frame} with some information on this axis.
+Some details of the axis.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$brief()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+A 1-row \code{data.frame} with some details of the axis.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisNumeric-range"></a>}}
@@ -144,10 +157,9 @@ provided, or \code{integer(0)} if none of the \code{x} values are valid.
 \if{html}{\out{<a id="method-CFAxisNumeric-sub_axis"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-sub_axis}{}}}
 \subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range.
-
-This method returns an axis which spans the range of indices given by
-the \code{rng} argument.
+Return an axis spanning a smaller dimension range. This
+method returns an axis which spans the range of indices given by the
+\code{rng} argument.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$sub_axis(group, rng = NULL)}\if{html}{\out{</div>}}
 }
@@ -163,10 +175,11 @@ axis.}
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{CFAxisNumeric} covering the indicated range of indices. If
-the \code{rng} argument includes only a single value, an \link{CFAxisScalar}
-instance is returned with the value from this axis. If the value of the
-argument is \code{NULL}, return the entire axis (possibly as a scalar axis).
+A \code{CFAxisNumeric} instance covering the indicated range of
+indices. If the \code{rng} argument includes only a single value, an
+\link{CFAxisScalar} instance is returned with the value from this axis. If
+the value of the argument is \code{NULL}, return the entire axis (possibly
+as a scalar axis).
 }
 }
 \if{html}{\out{<hr>}}
