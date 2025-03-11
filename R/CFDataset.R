@@ -60,7 +60,9 @@ CFDataset <- R6::R6Class("CFDataset",
     },
 
     #' @description Summary of the data set printed to the console.
-    print = function() {
+    #' @param ... Arguments passed on to other functions. Of particular interest
+    #' is `width = ` to indicate a maximum width of attribute columns.
+    print = function(...) {
       cat("<Dataset>", self$name, "\n")
       cat("Resource   :", private$res$uri, "\n")
       cat("Format     :", private$format, "\n")
@@ -79,17 +81,17 @@ CFDataset <- R6::R6Class("CFDataset",
         if (all(vars$long_name == "")) vars$long_name <- NULL
         if (all(vars$units == "")) vars$units <- NULL
         vars <- as.data.frame(vars[lengths(vars) > 0L])
-        print(.slim.data.frame(vars, 50L), right = FALSE, row.names = FALSE)
+        print(.slim.data.frame(vars, ...), right = FALSE, row.names = FALSE)
 
         cat("\nAxes:\n")
         axes <- do.call(rbind, lapply(self$root$axes(), function(a) a$brief()))
         axes <- lapply(axes, function(c) if (all(c == "")) NULL else c)
         if (all(axes$group == "/")) axes$group <- NULL
         axes <- unique(as.data.frame(axes[lengths(axes) > 0L]))
-        print(.slim.data.frame(axes, 50L), right = FALSE, row.names = FALSE)
+        print(.slim.data.frame(axes, ...), right = FALSE, row.names = FALSE)
       }
 
-      self$root$print_attributes()
+      self$root$print_attributes(...)
     },
 
     #' @description Print the group hierarchy to the console.
@@ -184,16 +186,12 @@ CFDataset <- R6::R6Class("CFDataset",
     #' @description Retrieve global attributes of the data set.
     #'
     #' @param att Vector of character strings of attributes to return.
-    #' @param field The field of the attributes to return values from. This
-    #' must be "value" (default), "type" or "length".
-    #' @return If the `field` argument is "type" or "length", a character vector
-    #'   named with the `att` values that were found in the attributes. If
-    #'   argument `field` is "value", a list with elements named with the `att`
-    #'   values, containing the attribute value(s), except when argument `att`
-    #'   names a single attribute, in which case that attribute value is
-    #'   returned as a character string. If no attribute is named with a value
-    #'   of argument `att` an empty list is returned, or an empty string if
-    #'   there was only one value in argument `att`.
+    #' @param field The field of the attribute to return values from. This must
+    #'   be "value" (default) or "type".
+    #' @return If the `field` argument is "type", a character string. If `field`
+    #'   is "value", a single value of the type of the attribute, or a vector
+    #'   when the attribute has multiple values. If no attribute is named with a
+    #'   value of argument `att` `NA` is returned.
     attribute = function(att, field = "value") {
       self$root$attribute(att, field)
     }
@@ -223,8 +221,7 @@ CFDataset <- R6::R6Class("CFDataset",
     conventions = function(value) {
       if (missing(value)) {
         conv <- self$root$attribute("Conventions")
-        if (!nzchar(conv)) conv <- "(not indicated)"
-        conv
+        if (is.na(conv)) "(not indicated)" else conv
       }
     }
   )

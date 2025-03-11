@@ -11,14 +11,10 @@ library(ncdfCF)
 fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
   
 # Open the file, all metadata is read
-ds <- open_ncdf(fn)
-  
-# Easy access in understandable format to all the details
-ds
+(ds <- open_ncdf(fn))
   
 # Variables can be accessed through standard list-type extraction syntax
-t2m <- ds[["t2m"]]
-t2m
+(t2m <- ds[["t2m"]])
   
 # Same with dimensions, but now without first assigning the object to a symbol
 ds[["longitude"]]
@@ -51,12 +47,11 @@ str(ts)
                        X = c(29.6, 28.8),
                        Y = seq(-2, -1, by = 0.05))))
 
-## ----cfdata-------------------------------------------------------------------
-# Open a file and read the data from a variable into a CFData instance
+## ----cfarray------------------------------------------------------------------
+# Open a file and read the data from a variable into a CFArray instance
 fn <- system.file("extdata", "tasmax_NAM-44_day_20410701-vncdfCF.nc", package = "ncdfCF")
 ds <- open_ncdf(fn)
-tx <- ds[["tasmax"]]$data()
-tx
+(tx <- ds[["tasmax"]]$data())
 
 # Use the terra package for plotting
 # install.packages("terra")
@@ -67,18 +62,16 @@ tx_raw <- tx$raw()
 str(tx_raw)
 
 # Plot the data
-r <- terra::rast(tx_raw)
-r
+(r <- rast(tx_raw))
 plot(r)
 
-## ----cfdata2------------------------------------------------------------------
+## ----cfarray2-----------------------------------------------------------------
 tx_array <- tx$array()
 str(tx_array)
-r <- terra::rast(tx_array)
-terra::plot(r)
+r <- rast(tx_array)
+plot(r)
 
 ## ----terra--------------------------------------------------------------------
-r <- tx$terra()
-r
-terra::plot(r)
+(r <- tx$terra())
+plot(r)
 

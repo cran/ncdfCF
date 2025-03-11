@@ -19,15 +19,14 @@ commit](https://img.shields.io/github/last-commit/pvanlaake/ncdfCF)](https://git
 <!-- badges: end -->
 
 The `ncdfCF` package provides an easy to use interface to netCDF
-resources in R,  
-either in local files or remotely on a THREDDS server. It is built on
-the `RNetCDF` package which, like package `ncdf4`, provides a basic
-interface to the `netcdf` library, but which lacks an intuitive user
-interface. Package `ncdfCF` provides a high-level interface using
-functions and methods that are familiar to the R user. It reads the
-structural metadata and also the attributes upon opening the resource.
-In the process, the `ncdfCF` package also applies CF Metadata
-Conventions to interpret the data. This currently applies to:
+resources in R, either in local files or remotely on a THREDDS server.
+It is built on the `RNetCDF` package which, like package `ncdf4`,
+provides a basic interface to the `netcdf` library, but which lacks an
+intuitive user interface. Package `ncdfCF` provides a high-level
+interface using functions and methods that are familiar to the R user.
+It reads the structural metadata and also the attributes upon opening
+the resource. In the process, the `ncdfCF` package also applies CF
+Metadata Conventions to interpret the data. This currently applies to:
 
 - The **axis designation**. The three mechanisms to identify the axis
   each dimension represents are applied until an axis is determined.
@@ -168,9 +167,9 @@ resource, use the `peek_ncdf()` function:
 #> 
 #> $variables
 #>     id name             long_name standard_name units                      axes
-#> t2m  3  t2m   2 metre temperature                   K longitude, latitude, time
-#> pev  4  pev Potential evaporation                   m longitude, latitude, time
-#> tp   5   tp   Total precipitation                   m longitude, latitude, time
+#> t2m  3  t2m   2 metre temperature            NA     K longitude, latitude, time
+#> pev  4  pev Potential evaporation            NA     m longitude, latitude, time
+#> tp   5   tp   Total precipitation            NA     m longitude, latitude, time
 #> 
 #> $axes
 #>                     class id axis      name long_name standard_name
@@ -252,7 +251,7 @@ attributes:
 ``` r
 # Extract a specific region, full time dimension
 (ts <- t2m$subset(list(X = 29:30, Y = -1:-2)))
-#> <Data> t2m 
+#> <Data array> t2m 
 #> Long name: 2 metre temperature 
 #> 
 #> Values: [283.0182 ... 299.917] K
@@ -283,7 +282,7 @@ attributes:
 (ts <- t2m$subset(list(T = c("2016-01-01 09:00", "2016-01-01 15:00"),
                        X = c(29.6, 28.8),
                        Y = seq(-2, -1, by = 0.05))))
-#> <Data> t2m 
+#> <Data array> t2m 
 #> Long name: 2 metre temperature 
 #> 
 #> Values: [288.2335 ... 299.917] K
@@ -308,6 +307,52 @@ attributes:
 The latter two methods will read only as much data from the netCDF
 resource as is requested.
 
+##### Exporting and saving data
+
+A `CFData` object can be exported to a `data.table` or to a
+`terra::SpatRaster` (3D) or `terra::SpatRasterDataset` (4D) for further
+processing. Obviously, these packages need to be installed to utilise
+these methods.
+
+``` r
+# install.packages("data.table")
+library(data.table)
+head(dt <- ts$data.table())
+#>    longitude latitude                time      t2m
+#>        <num>    <num>              <char>    <num>
+#> 1:      28.8     -1.1 2016-01-01 09:00:00 296.0753
+#> 2:      28.9     -1.1 2016-01-01 09:00:00 294.9227
+#> 3:      29.0     -1.1 2016-01-01 09:00:00 295.8135
+#> 4:      29.1     -1.1 2016-01-01 09:00:00 297.0929
+#> 5:      29.2     -1.1 2016-01-01 09:00:00 297.4697
+#> 6:      29.3     -1.1 2016-01-01 09:00:00 298.5419
+
+#install.packages("terra")
+suppressMessages(library(terra))
+(r <- ts$terra())
+#> class       : SpatRaster 
+#> dimensions  : 10, 8, 6  (nrow, ncol, nlyr)
+#> resolution  : 0.1, 0.1  (x, y)
+#> extent      : 28.75, 29.55, -2.05, -1.05  (xmin, xmax, ymin, ymax)
+#> coord. ref. : lon/lat WGS 84 (EPSG:4326) 
+#> source(s)   : memory
+#> names       : 2016-~00:00, 2016-~00:00, 2016-~00:00, 2016-~00:00, 2016-~00:00, 2016-~00:00 
+#> min values  :    290.0364,    288.9316,    288.7990,    288.3621,    288.3680,    288.2335 
+#> max values  :    299.8894,    299.8691,    299.9066,    299.9170,    299.7626,    299.5948
+terra::plot(r[names(r)[1]])
+```
+
+<img src="man/figures/README-export-1.png" width="100%" />
+
+A `CFData` object can also be written back to a netCDF file. The object
+will have all its relevant attributes and properties written together
+with the actual data: axes, bounds, attributes, CRS.
+
+``` r
+# Save a CFData instance to a netCDF file on disk
+ts$save("~/path/file.nc")
+```
+
 ##### A note on Discrete Sampling Geometries
 
 Discrete Sampling Geometries (DSG) map almost directly to the venerable
@@ -317,9 +362,11 @@ specific code for DSG, but the simplest layouts can currently already be
 read (without any warranty). Various methods, such as
 `CFVariable::subset()` or `CFData::array()` will fail miserably, and you
 are well-advised to try no more than the empty array indexing operator
-`CFVariable::[]` which will yield the full data set with column and row
-names set as an array. You can identify a DSG data set by the
-`featureType` attribute of the `CFDataset`.
+`CFVariable::[]` which will yield the full data variable  
+with column and row names set as an array, of `CFVariable::data()` to
+get the whole data variable as a `CFData` object for further processing.
+You can identify a DSG data set by the `featureType` attribute of the
+`CFDataset`.
 
 More comprehensive support for DSG is in the development plan.
 
@@ -328,9 +375,10 @@ More comprehensive support for DSG is in the development plan.
 Package `ncdfCF` is in the early phases of development. It supports
 reading of groups, variables, dimensions, user-defined data types,
 attributes and data from netCDF resources in “classic” and “netcdf4”
-formats. From the CF Metadata Conventions it supports identification of
-dimension axes, interpretation of the “time” dimension, name resolution
-when using groups, reading of “bounds” information, parametric vertical
+formats; and can write single data variables back to a netCDF file. From
+the CF Metadata Conventions it supports identification of dimension
+axes, interpretation of the “time” dimension, name resolution when using
+groups, reading of “bounds” information, parametric vertical
 coordinates, auxiliary coordinate variables, labels, and grid mapping
 information.
 
@@ -339,7 +387,7 @@ features:
 
 ##### netCDF
 
-- Support for writing.
+- Support for writing of data sets.
 
 ##### CF Metadata Conventions
 

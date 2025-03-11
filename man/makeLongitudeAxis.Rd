@@ -19,12 +19,12 @@ makeLongitudeAxis(id, name, group, length, values, bounds = NULL, units = "")
 
 \item{bounds}{The bounds of the dimension values, or \code{NULL} if not available.}
 
-\item{units}{The name of the axis units.}
+\item{units}{A character string with the axis units.}
 }
 \value{
 A \code{CFAxisLongitude} instance.
 }
 \description{
-With this method you can create a longitude axis to use with new \link{CFData}
+With this method you can create a longitude axis to use with new \link{CFArray}
 instances.
 }

@@ -11,6 +11,14 @@ NULL
 CFAxisTime <- R6::R6Class("CFAxisTime",
   inherit = CFAxis,
   private = list(
+    get_values = function() {
+      self$values$offsets
+    },
+
+    get_coordinates = function() {
+      self$values$as_timestamp()
+    },
+
     dimvalues_short = function() {
       time <- self$values
       nv <- length(time$offsets)
@@ -41,7 +49,8 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     },
 
     #' @description Summary of the time axis printed to the console.
-    #' @param ... Ignored.
+    #' @param ... Arguments passed on to other functions. Of particular interest
+    #' is `width = ` to indicate a maximum width of attribute columns.
     #' @return `self`, invisibly.
     print = function(...) {
       super$print()
@@ -58,7 +67,7 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       cat("Range    :", rng, "\n")
       cat("Bounds   :", bndrng, "\n")
 
-      self$print_attributes()
+      self$print_attributes(...)
       invisible(self)
     },
 
@@ -71,7 +80,8 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       out
     },
 
-    #' @description Retrieve the CFTime instance that manages this axis.
+    #' @description Retrieve the `CFTime` instance that manages the values of
+    #' this axis.
     #' @return An instance of `CFTime`.
     time = function() {
       self$values

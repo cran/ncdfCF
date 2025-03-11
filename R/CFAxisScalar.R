@@ -12,16 +12,21 @@
 CFAxisScalar <- R6::R6Class("CFAxisScalar",
   inherit = CFAxis,
   private = list(
+    get_values = function() {
+      if (inherits(self$values, "CFTime")) self$values$offsets
+      else self$values
+    },
+
     dimvalues_short = function() {
-      v <- if (inherits(self$value, "CFTime")) as_timestamp(self$value)
-           else self$value
+      v <- if (inherits(self$values, "CFTime")) as_timestamp(self$values)
+           else self$values
       paste0("[", v, "]")
     }
   ),
   public = list(
-    #' @field value The value of the axis. This could be a composite value, such
+    #' @field values The value of the axis. This could be a composite value, such
     #' as a `CFTime` instance.
-    value = NULL,
+    values = NULL,
 
     #' @description Create an instance of this class.
     #' @param grp The group that contains the netCDF variable.
@@ -32,11 +37,12 @@ CFAxisScalar <- R6::R6Class("CFAxisScalar",
     initialize = function(grp, nc_var, orientation, value) {
       dim <- NCDimension$new(-1L, nc_var$name, 1L, FALSE)
       super$initialize(grp, nc_var, dim, orientation)
-      self$value <- value
+      self$values <- value
     },
 
     #' @description Summary of the scalar axis printed to the console.
-    #' @param ... Ignored.
+    #' @param ... Arguments passed on to other functions. Of particular interest
+    #' is `width = ` to indicate a maximum width of attribute columns.
     #' @return `self`, invisibly.
     print = function(...) {
       cat("<", self$friendlyClassName, "> ", self$name, "\n", sep = "")
@@ -44,26 +50,26 @@ CFAxisScalar <- R6::R6Class("CFAxisScalar",
         cat("Group    :", self$group$fullname, "\n")
 
       longname <- self$attribute("long_name")
-      if (nzchar(longname) && longname != self$name)
+      if (!is.na(longname) && longname != self$name)
         cat("Long name:", longname, "\n")
 
       cat("Axis     :", self$orientation, "\n")
 
-      if (inherits(self$value, "CFTime")) {
-        cat("Value    :", as_timestamp(self$value), "\n")
-        bnds <- self$value$get_bounds("timestamp")
+      if (inherits(self$values, "CFTime")) {
+        cat("Value    :", as_timestamp(self$values), "\n")
+        bnds <- self$values$get_bounds("timestamp")
         if (is.null(bnds)) cat("Bounds   : (not set)\n")
         else cat("Bounds   : ", bnds[1L, 1L], ", ", bnds[2L, 1L], "\n", sep = "")
       } else {
         units <- self$attribute("units")
-        if (!nzchar(units)) units <- ""
-        cat("Value    : ", self$value, " ", units, "\n", sep = "")
+        if (is.na(units)) units <- ""
+        cat("Value    : ", self$values, " ", units, "\n", sep = "")
         if (inherits(self$bounds, "CFBounds"))
-          self$bounds$print()
+          self$bounds$print(...)
         else cat("Bounds   : (not set)\n")
       }
 
-      self$print_attributes()
+      self$print_attributes(...)
     },
 
     #' @description Some details of the axis.
@@ -71,13 +77,22 @@ CFAxisScalar <- R6::R6Class("CFAxisScalar",
     #' @return A 1-row `data.frame` with some details of the axis.
     brief = function() {
       longname <- self$attribute("long_name")
-      if (!nzchar(longname) || longname == self$name) longname <- ""
+      if (is.na(longname) || longname == self$name) longname <- ""
       units <- self$attribute("units")
-      if (!nzchar(units)) units <- ""
+      if (is.na(units)) units <- ""
 
       data.frame(id = "", axis = self$orientation, group = self$group$fullname,
                  name = self$name, long_name = longname, length = 1L,
                  unlim = "", values = private$dimvalues_short(), unit = units)
+    },
+
+    #' @description Retrieve the `CFTime` instance that manages the time value
+    #' if this scalar axis represents time.
+    #' @return An instance of `CFTime`, or `NULL` if this axis does not
+    #' represent time.
+    time = function() {
+      if (inherits(self$values, "CFTime")) self$values
+      else NULL
     },
 
     #' @description Return the axis. This method returns a clone of this axis,
@@ -103,8 +118,8 @@ CFAxisScalar <- R6::R6Class("CFAxisScalar",
     #' @field dimnames (read-only) The coordinate of the axis.
     dimnames = function(value) {
       if (missing(value))
-        if (inherits(self$value, "CFTime")) as_timestamp(self$value)
-        else self$value
+        if (inherits(self$values, "CFTime")) as_timestamp(self$values)
+        else self$values
     }
   )
 )

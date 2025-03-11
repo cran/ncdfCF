@@ -17,6 +17,10 @@ element) or an auxiliary longitude-latitude grid (4 vertices per element).
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
+\item{\code{NCdim}}{The \link{NCDimension} that stores the netCDF dimension details
+of the bounds dimension (as opposed to the dimension of the associated
+axis).}
+
 \item{\code{values}}{A matrix with the bounds values.}
 }
 \if{html}{\out{</div>}}
@@ -35,14 +39,19 @@ element) or an auxiliary longitude-latitude grid (4 vertices per element).
 \item \href{#method-CFBounds-print}{\code{CFBounds$print()}}
 \item \href{#method-CFBounds-range}{\code{CFBounds$range()}}
 \item \href{#method-CFBounds-sub_bounds}{\code{CFBounds$sub_bounds()}}
+\item \href{#method-CFBounds-write}{\code{CFBounds$write()}}
 \item \href{#method-CFBounds-clone}{\code{CFBounds$clone()}}
 }
 }
 \if{html}{\out{
-<details open><summary>Inherited methods</summary>
+<details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -52,13 +61,15 @@ element) or an auxiliary longitude-latitude grid (4 vertices per element).
 \subsection{Method \code{new()}}{
 Create an instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$new(nc_var, values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$new(nc_var, nc_dim, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{nc_var}}{The NC variable that describes this instance.}
+
+\item{\code{nc_dim}}{The NC dimension that defines the vertices of the bounds.}
 
 \item{\code{values}}{A matrix with the bounds values.}
 }
@@ -71,9 +82,17 @@ Create an instance of this class.
 \subsection{Method \code{print()}}{
 Print a summary of the object to the console.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$print()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Arguments passed on to other functions. Of particular interest
+is \verb{width = } to indicate a maximum width of attribute columns.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFBounds-range"></a>}}
@@ -109,6 +128,28 @@ returned object.}
 }
 \subsection{Returns}{
 A \code{CFBounds} instance covering the indicated range of indices.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFBounds-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFBounds-write}{}}}
+\subsection{Method \code{write()}}{
+Write the bounds variable to a netCDF file. This method
+should not be called directly; instead, \code{CFArray::save()} will call this
+method automatically.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$write(h, object_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{h}}{The handle to a netCDF file open for writing.}
+
+\item{\code{object_name}}{The name of the object that uses these bounds, usually
+an axis but could also be an auxiliary CV or a parametric Z axis.}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}

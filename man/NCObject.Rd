@@ -30,6 +30,10 @@ this class manages the attributes for its descendent classes.
 \item \href{#method-NCObject-new}{\code{NCObject$new()}}
 \item \href{#method-NCObject-print_attributes}{\code{NCObject$print_attributes()}}
 \item \href{#method-NCObject-attribute}{\code{NCObject$attribute()}}
+\item \href{#method-NCObject-set_attribute}{\code{NCObject$set_attribute()}}
+\item \href{#method-NCObject-append_attribute}{\code{NCObject$append_attribute()}}
+\item \href{#method-NCObject-delete_attribute}{\code{NCObject$delete_attribute()}}
+\item \href{#method-NCObject-write_attributes}{\code{NCObject$write_attributes()}}
 \item \href{#method-NCObject-clone}{\code{NCObject$clone()}}
 }
 }
@@ -77,7 +81,7 @@ printed to the console.}
 \if{html}{\out{<a id="method-NCObject-attribute"></a>}}
 \if{latex}{\out{\hypertarget{method-NCObject-attribute}{}}}
 \subsection{Method \code{attribute()}}{
-This method returns netCDF object attributes.
+This method returns an attribute of a netCDF object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{NCObject$attribute(att, field = "value")}\if{html}{\out{</div>}}
 }
@@ -85,22 +89,131 @@ This method returns netCDF object attributes.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{att}}{Vector of attribute names whose values to return.}
+\item{\code{att}}{Attribute name whose value to return.}
 
-\item{\code{field}}{The field of the attributes to return values from. This must
-be "value" (default), "type" or "length".}
+\item{\code{field}}{The field of the attribute to return values from. This must
+be "value" (default) or "type".}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-If the \code{field} argument is "type" or "length", a character vector
-named with the \code{att} values that were found in the attributes. If
-argument \code{field} is "value", a list with elements named with the \code{att}
-values, containing the attribute value(s), except when argument \code{att}
-names a single attribute, in which case that attribute value is
-returned as a character string. If no attribute is named with a value
-of argument \code{att} an empty list is returned, or an empty string if
-there was only one value in argument \code{att}.
+If the \code{field} argument is "type", a character string. If \code{field}
+is "value", a single value of the type of the attribute, or a vector
+when the attribute has multiple values. If no attribute is named with a
+value of argument \code{att} \code{NA} is returned.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCObject-set_attribute"></a>}}
+\if{latex}{\out{\hypertarget{method-NCObject-set_attribute}{}}}
+\subsection{Method \code{set_attribute()}}{
+Add an attribute. If an attribute \code{name} already exists, it
+will be overwritten.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCObject$set_attribute(name, type, value)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{The name of the attribute. The name must begin with a letter
+and be composed of letters, digits, and underscores, with a maximum
+length of 255 characters. UTF-8 characters are not supported in
+attribute names.}
+
+\item{\code{type}}{The type of the attribute, as a string value of a netCDF data
+type.}
+
+\item{\code{value}}{The value of the attribute. This can be of any supported
+type, including a vector or list of values. Matrices, arrays and like
+compound data structures should be stored as a data variable, not as an
+attribute and they are thus not allowed. In general, an attribute
+should be a character value, a numeric value, a logical value, or a
+short vector or list of any of these. Values passed in a list will be
+coerced to their common mode.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCObject-append_attribute"></a>}}
+\if{latex}{\out{\hypertarget{method-NCObject-append_attribute}{}}}
+\subsection{Method \code{append_attribute()}}{
+Append the text value of an attribute. If an attribute
+\code{name} already exists, the \code{value} will be appended to the existing
+value of the attribute. If the attribute \code{name} does not exist it will
+be created. The attribute must be of "NC_CHAR" or "NC_STRING" type; in
+the latter case having only a single string value.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCObject$append_attribute(name, value, sep = "; ", prepend = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{The name of the attribute. The name must begin with a letter
+and be composed of letters, digits, and underscores, with a maximum
+length of 255 characters. UTF-8 characters are not supported in
+attribute names.}
+
+\item{\code{value}}{The character value of the attribute to append. This must be
+a character string.}
+
+\item{\code{sep}}{The separator to use. Default is \code{"; "}.}
+
+\item{\code{prepend}}{Logical to flag if the supplied \code{value} should be placed
+before the existing value. Default is \code{FALSE}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCObject-delete_attribute"></a>}}
+\if{latex}{\out{\hypertarget{method-NCObject-delete_attribute}{}}}
+\subsection{Method \code{delete_attribute()}}{
+Delete an attribute. If an attribute \code{name} is not present
+this method simply returns.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCObject$delete_attribute(name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{The name of the attribute to delete.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCObject-write_attributes"></a>}}
+\if{latex}{\out{\hypertarget{method-NCObject-write_attributes}{}}}
+\subsection{Method \code{write_attributes()}}{
+Write the attributes of this object to a netCDF file.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCObject$write_attributes(nc, nm)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{nc}}{The handle to the netCDF file opened for writing.}
+
+\item{\code{nm}}{The NC variable name or "NC_GLOBAL" to write the attributes to.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}

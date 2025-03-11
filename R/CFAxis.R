@@ -6,6 +6,13 @@
 #' @docType class
 CFAxis <- R6::R6Class("CFAxis",
   inherit = CFObject,
+  private = list(
+    # Get the coordinates of the axis. In most cases that is just the values
+    # but CFAxisTime overrides this method.
+    get_coordinates = function() {
+      private$get_values()
+    }
+  ),
   public = list(
     #' @field NCdim The [NCDimension] that stores the netCDF dimension details.
     #' This is `NULL` for [CFAxisScalar] instances.
@@ -44,7 +51,8 @@ CFAxis <- R6::R6Class("CFAxis",
 
     #' @description  Prints a summary of the axis to the console. This method is
     #'   typically called by the `print()` method of descendant classes.
-    #' @param ... Ignored.
+    #' @param ... Arguments passed on to other functions. Of particular interest
+    #' is `width = ` to indicate a maximum width of attribute columns.
     #' @return `self`, invisibly.
     print = function(...) {
       cat("<", self$friendlyClassName, "> [", self$dimid, "] ", self$name, "\n", sep = "")
@@ -52,7 +60,7 @@ CFAxis <- R6::R6Class("CFAxis",
         cat("Group    :", self$group$fullname, "\n")
 
       longname <- self$attribute("long_name")
-      if (nzchar(longname) && longname != self$name)
+      if (!is.na(longname) && longname != self$name)
         cat("Long name:", longname, "\n")
 
       cat("Length   :", self$NCdim$length)
@@ -64,10 +72,10 @@ CFAxis <- R6::R6Class("CFAxis",
     #' @return A 1-row `data.frame` with some details of the axis.
     brief = function() {
       longname <- self$attribute("long_name")
-      if (!nzchar(longname) || longname == self$name) longname <- ""
+      if (is.na(longname) || longname == self$name) longname <- ""
       unlim <- if (self$NCdim$unlim) "U" else ""
       units <- self$attribute("units")
-      if (!nzchar(units)) units <- ""
+      if (is.na(units)) units <- ""
       if (units == "1") units <- ""
 
       data.frame(id = self$dimid, axis = self$orientation, group = self$group$fullname,
@@ -103,10 +111,10 @@ CFAxis <- R6::R6Class("CFAxis",
       out
     },
 
-    #' @description Return the `CFtime` instance that represents time. This
-    #'   method is only useful for `CFAxisTime` instances. This stub is here to
-    #'   make the call to this method succeed with no result for the other axis
-    #'   descendants.
+    #' @description Return the `CFTime` instance that represents time. This
+    #'   method is only useful for `CFAxisTime` instances and `CFAxisScalar`
+    #'   instances having time information. This stub is here to make the call
+    #'   to this method succeed with no result for the other axis descendants.
     #' @return `NULL`
     time = function() {
       NULL
@@ -167,6 +175,30 @@ CFAxis <- R6::R6Class("CFAxis",
       if (index > 0L && index <= length(self$lbls))
         self$lbls[[index]]$values
       else NULL
+    },
+
+    #' @description Write the axis to a netCDF file, including its attributes.
+    #' @param nc The handle of the netCDF file opened for writing or a group in
+    #'   the netCDF file. If `NULL`, write to the file or group where the axis
+    #'   was read from (the file must have been opened for writing). If not
+    #'   `NULL`, the handle to a netCDF file or a group therein.
+    #' @return Self, invisibly.
+    write = function(nc = NULL) {
+      h <- if (inherits(nc, "NetCDF")) nc else self$group$handle
+
+      if (inherits(self, "CFAxisScalar")) {
+        RNetCDF::var.def.nc(h, self$name, self$NCvar$vtype, NA)
+      } else {
+        self$NCdim$write(h)
+        RNetCDF::var.def.nc(h, self$name, self$NCvar$vtype, self$name)
+      }
+      self$write_attributes(h, self$name)
+      RNetCDF::var.put.nc(h, self$name, private$get_values())
+
+      if (!is.null(self$bounds))
+        self$bounds$write(h, self$name)
+
+      invisible(self)
     }
   ),
 
@@ -191,6 +223,13 @@ CFAxis <- R6::R6Class("CFAxis",
         self$NCdim$length
     },
 
+    #' @field coordinates (read-only) Retrieve the coordinate values of the
+    #' axis.
+    coordinates = function(value) {
+      if (missing(value))
+        private$get_coordinates()
+    },
+
     #' @field labels Set or retrieve the labels for the axis. On assignment, the
     #' value must be an instance of [CFLabel].
     labels = function(value) {
@@ -200,6 +239,13 @@ CFAxis <- R6::R6Class("CFAxis",
         if (inherits(value, "CFLabel") && value$length == self$length)
           self$lbls <- append(self$lbls, value)
       }
+    },
+
+    #' @field unlimited (read-only) Logical to indicate if the axis has an
+    #'   unlimited dimension.
+    unlimited = function(value) {
+      if (missing(value))
+        self$NCdim$unlim
     }
   )
 )

@@ -36,8 +36,14 @@ axis.}
 
 \item{\code{length}}{(read-only) The declared length of this axis.}
 
+\item{\code{coordinates}}{(read-only) Retrieve the coordinate values of the
+axis.}
+
 \item{\code{labels}}{Set or retrieve the labels for the axis. On assignment, the
 value must be an instance of \link{CFLabel}.}
+
+\item{\code{unlimited}}{(read-only) Logical to indicate if the axis has an
+unlimited dimension.}
 }
 \if{html}{\out{</div>}}
 }
@@ -53,14 +59,19 @@ value must be an instance of \link{CFLabel}.}
 \item \href{#method-CFAxis-sub_axis}{\code{CFAxis$sub_axis()}}
 \item \href{#method-CFAxis-indexOf}{\code{CFAxis$indexOf()}}
 \item \href{#method-CFAxis-label_set}{\code{CFAxis$label_set()}}
+\item \href{#method-CFAxis-write}{\code{CFAxis$write()}}
 \item \href{#method-CFAxis-clone}{\code{CFAxis$clone()}}
 }
 }
 \if{html}{\out{
-<details open><summary>Inherited methods</summary>
+<details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -108,7 +119,8 @@ typically called by the \code{print()} method of descendant classes.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{Ignored.}
+\item{\code{...}}{Arguments passed on to other functions. Of particular interest
+is \verb{width = } to indicate a maximum width of attribute columns.}
 }
 \if{html}{\out{</div>}}
 }
@@ -170,10 +182,10 @@ A 1-row \code{data.frame} with details of the axis.
 \if{html}{\out{<a id="method-CFAxis-time"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-time}{}}}
 \subsection{Method \code{time()}}{
-Return the \code{CFtime} instance that represents time. This
-method is only useful for \code{CFAxisTime} instances. This stub is here to
-make the call to this method succeed with no result for the other axis
-descendants.
+Return the \code{CFTime} instance that represents time. This
+method is only useful for \code{CFAxisTime} instances and \code{CFAxisScalar}
+instances having time information. This stub is here to make the call
+to this method succeed with no result for the other axis descendants.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$time()}\if{html}{\out{</div>}}
 }
@@ -270,6 +282,29 @@ default the first set is returned.
 A character vector of string labels with as many elements as the
 axis has, or \code{NULL} when no labels have been set or when argument
 \code{index} is not valid.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-write}{}}}
+\subsection{Method \code{write()}}{
+Write the axis to a netCDF file, including its attributes.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$write(nc = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{nc}}{The handle of the netCDF file opened for writing or a group in
+the netCDF file. If \code{NULL}, write to the file or group where the axis
+was read from (the file must have been opened for writing). If not
+\code{NULL}, the handle to a netCDF file or a group therein.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}
