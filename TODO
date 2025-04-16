@@ -9,15 +9,19 @@ Every push to GitHub
  - Run check()!
 
 Priority
- - Package environment
+ - Boundary "axes" delete
+ - Labels are not necessarily associated with an axis. E.g. labels used in
+ `cell_methods` where clause. Where to store these?
+ - CFCellMethods: parse the attribute, check the values
  - Testing
- - cell_methods
  - CFAxisVertical calculate grids -> metR after release
- - Merge Group classes?
+ - Write NetCDF files for CFDataset and from scratch
+ - Do the CF* classes need access to the group? Or go through the NCVariable?
 
 Future
- - Write NetCDF files for CFDataset and from scratch
+ - Basic math on CFArray: Math and Ops group functions like + - * / ^
  - CFData$plot(), using ncdfCF vignette (first attempt in R projects folder)
+ - subset() with multiple labels, possibly discontinuous
  - Fix auxll caching when same aoi is set
  - CFArray merge multiple instances.
  - Support more manipulation on attributes: merge

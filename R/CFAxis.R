@@ -3,14 +3,41 @@
 #' @description This class is a basic ancestor to all classes that represent CF
 #'   axes. More useful classes use this class as ancestor.
 #'
+#'   This super-class does manage the "coordinates" of the axis, i.e. the values
+#'   along the axis. This could be the values of the axis as stored on file, but
+#'   it can also be the values from an auxiliary coordinate set, in the form of
+#'   a [CFLabel] instance. The coordinate set to use in display, selection and
+#'   processing is selectable through methods and fields in this class.
+#'
 #' @docType class
 CFAxis <- R6::R6Class("CFAxis",
   inherit = CFObject,
   private = list(
-    # Get the coordinates of the axis. In most cases that is just the values
-    # but CFAxisTime overrides this method.
+    # A list of auxiliary coordinate instances, if any are defined for the axis.
+    aux = list(),
+
+    # The active coordinates set. Either an integer or a name. If there are no
+    # auxiliary coordinates or when underlying axis coordinates should be used,
+    # it should be 1L.
+    active_coords = 1L,
+
+    # Get the values of the active coordinate set. In most cases that is just
+    # the values but it could be a label set. Most sub-classes override or
+    # extend this method.
     get_coordinates = function() {
-      private$get_values()
+      if (private$active_coords == 1L)
+        private$get_values()
+      else
+        private$aux[[private$active_coords - 1L]]$coordinates
+    },
+
+    # Copy a subset of all the auxiliary coordinates to another axis. Argument
+    # ax will receive the auxiliary coordinates subsetted by argument rng.
+    subset_coordinates = function(ax, rng) {
+      if (length(private$aux)) {
+        grp <- makeGroup(-1L, "/", "/")
+        lapply(private$aux, function(x) ax$auxiliary <- x$subset(grp, rng))
+      }
     }
   ),
   public = list(
@@ -25,15 +52,10 @@ CFAxis <- R6::R6Class("CFAxis",
     #' @field bounds The boundary values of this axis, if set.
     bounds = NULL,
 
-    #' @field lbls A list of [CFLabel] instances, if any are defined for the
-    #' axis.
-    lbls = list(),
-
     #' @description Create a new CF axis instance from a dimension and a
     #'   variable in a netCDF resource. This method is called upon opening a
     #'   netCDF resource by the `initialize()` method of a descendant class
     #'   suitable for the type of axis.
-    #'
     #' @param grp The [NCGroup] that this axis is located in.
     #' @param nc_var The [NCVariable] instance upon which this CF axis is based.
     #' @param nc_dim The [NCDimension] instance upon which this CF axis is
@@ -45,6 +67,7 @@ CFAxis <- R6::R6Class("CFAxis",
       super$initialize(nc_var, grp)
       self$NCdim <- nc_dim
       self$orientation <- orientation
+      self$delete_attribute("_FillValue")
 
       nc_var$CF <- self
     },
@@ -57,15 +80,17 @@ CFAxis <- R6::R6Class("CFAxis",
     print = function(...) {
       cat("<", self$friendlyClassName, "> [", self$dimid, "] ", self$name, "\n", sep = "")
       if (self$group$name != "/")
-        cat("Group    :", self$group$fullname, "\n")
+        cat("Group      :", self$group$fullname, "\n")
 
       longname <- self$attribute("long_name")
       if (!is.na(longname) && longname != self$name)
-        cat("Long name:", longname, "\n")
+        cat("Long name  :", longname, "\n")
 
-      cat("Length   :", self$NCdim$length)
+      cat("Length     :", self$NCdim$length)
       if (self$NCdim$unlim) cat(" (unlimited)\n") else cat("\n")
-      cat("Axis     :", self$orientation, "\n")
+      cat("Axis       :", self$orientation, "\n")
+      if (length(private$aux))
+        cat("Coordinates:", paste(self$coordinate_names, collapse = ", "), "\n")
     },
 
     #' @description Some details of the axis.
@@ -86,7 +111,6 @@ CFAxis <- R6::R6Class("CFAxis",
     #' @description Very concise information on the axis. The information
     #'   returned by this function is very concise and most useful when combined
     #'   with similar information from other axes.
-    #'
     #' @return Character string with very basic axis information.
     shard = function() {
       self$NCdim$shard()
@@ -108,6 +132,7 @@ CFAxis <- R6::R6Class("CFAxis",
       out$unlimited <- self$NCdim$unlim
       out$values <- private$dimvalues_short()
       out$has_bounds <- inherits(self$bounds, "CFBounds")
+      out$coordinate_sets <- length(private$aux) + 1L
       out
     },
 
@@ -120,19 +145,17 @@ CFAxis <- R6::R6Class("CFAxis",
       NULL
     },
 
-    #' @description Return an axis spanning a smaller dimension range. This
+    #' @description Return an axis spanning a smaller coordinate range. This
     #'   method is "virtual" in the sense that it does not do anything other
     #'   than return `NULL`. This stub is here to make the call to this method
     #'   succeed with no result for the other axis descendants that do not
     #'   implement this method.
-    #'
     #' @param group The group to create the new axis in.
     #' @param rng The range of values from this axis to include in the returned
     #'   axis. If the value of the argument is `NULL`, return the entire axis
     #'   (possibly as a scalar axis).
-    #'
     #' @return `NULL`
-    sub_axis = function(group, rng = NULL) {
+    subset = function(group, rng = NULL) {
       NULL
     },
 
@@ -146,13 +169,11 @@ CFAxis <- R6::R6Class("CFAxis",
     #'   from those bounds. Returned indices may fall in between bounds if the
     #'   latter are not contiguous, with the exception of the extreme values in
     #'   `x`.
-    #'
     #' @param x Vector of numeric, timestamp or categorial values to find axis
     #'   indices for. The timestamps can be either character, POSIXct or Date
     #'   vectors. The type of the vector has to correspond to the type of the
     #'   axis.
     #' @param method Single character value of "constant" or "linear".
-    #'
     #' @return Numeric vector of the same length as `x`. If `method = "constant"`,
     #'   return the index value for each match. If `method = "linear"`, return
     #'   the index value with any fractional value. Values of `x` outside of the
@@ -160,21 +181,6 @@ CFAxis <- R6::R6Class("CFAxis",
     #'   `.Machine$integer.max`, respectively.
     indexOf = function(x, method = "constant") {
       stop("`indexOf()` must be implemented by descendant CFAxis class.")
-    },
-
-    #' @description Retrieve a set of character labels corresponding to the
-    #'   elements of an axis. An axis can have multiple sets of labels and by
-    #'   default the first set is returned.
-    #'
-    #' @param index An integer value indicating which set of labels to retrieve.
-    #'
-    #' @return A character vector of string labels with as many elements as the
-    #'   axis has, or `NULL` when no labels have been set or when argument
-    #'   `index` is not valid.
-    label_set = function(index = 1L) {
-      if (index > 0L && index <= length(self$lbls))
-        self$lbls[[index]]$values
-      else NULL
     },
 
     #' @description Write the axis to a netCDF file, including its attributes.
@@ -192,11 +198,17 @@ CFAxis <- R6::R6Class("CFAxis",
         self$NCdim$write(h)
         RNetCDF::var.def.nc(h, self$name, self$NCvar$vtype, self$name)
       }
+
+      if (self$orientation %in% c("X", "Y", "Z", "T"))
+        self$set_attribute("axis", "NC_CHAR", self$orientation)
       self$write_attributes(h, self$name)
+
       RNetCDF::var.put.nc(h, self$name, private$get_values())
 
       if (!is.null(self$bounds))
         self$bounds$write(h, self$name)
+
+      lapply(private$aux, function(l) l$write(nc))
 
       invisible(self)
     }
@@ -223,21 +235,57 @@ CFAxis <- R6::R6Class("CFAxis",
         self$NCdim$length
     },
 
+    #' @field values (read-only) Retrieve the raw values of the axis. In general
+    #'   you should use the `coordinates` field rather than this one.
+    values = function(value) {
+      if (missing(value))
+        private$get_values()
+    },
+
     #' @field coordinates (read-only) Retrieve the coordinate values of the
-    #' axis.
+    #' active coordinate set from the axis.
     coordinates = function(value) {
       if (missing(value))
         private$get_coordinates()
     },
 
-    #' @field labels Set or retrieve the labels for the axis. On assignment, the
-    #' value must be an instance of [CFLabel].
-    labels = function(value) {
+    #' @field auxiliary Set or retrieve auxiliary coordinates for the axis. On
+    #'   assignment, the value must be an instance of [CFLabel] or a [CFAxis]
+    #'   descendant, which is added to the end of the list of coordinate sets.
+    #'   On retrieval, the active `CFLabel` or `CFAxis` instance or `NULL` when
+    #'   the active coordinate set is the primary axis coordinates.
+    auxiliary = function(value) {
+      if (missing(value)) {
+        if (private$active_coords == 1L) NULL
+        else private$aux[[private$active_coords - 1L]]
+      } else {
+        if ((inherits(value, "CFLabel") || inherits(value, "CFAxis")) && value$length == self$length) {
+          private$aux <- append(private$aux, value)
+          names(private$aux) <- sapply(private$aux, function(l) l$name)
+        }
+      }
+    },
+
+    #' @field coordinate_names Retrieve the names of the coordinates
+    #'   defined for the axis, as a character vector. The first element in the
+    #'   vector is the name of the axis and it refers to the values of the
+    #'   coordinates as stored in the netCDF file. Following elements refer to
+    #'   auxiliary coordinates.
+    coordinate_names = function(value) {
       if (missing(value))
-        self$lbls
+        c(self$name, names(private$aux))
+    },
+
+    #' @field active_coordinates Set or retrieve the name of the coordinate set
+    #'   to use with the axis for printing to the console as well as for
+    #'   processing methods such as `subset()`.
+    active_coordinates = function(value) {
+      if (missing(value))
+        self$coordinate_names[private$active_coords]
       else {
-        if (inherits(value, "CFLabel") && value$length == self$length)
-          self$lbls <- append(self$lbls, value)
+        ndx <- match(value, self$coordinate_names, nomatch = 0L)
+        if (ndx > 0L)
+          private$active_coords <- ndx
       }
     },
 
@@ -257,10 +305,8 @@ CFAxis <- R6::R6Class("CFAxis",
 #' This method returns the lengths of the axes of a variable or axis.
 #'
 #' @param x The `CFVariable` or a descendant of `CFAxis`.
-#'
-#' @return Vector of dimension lengths.
+#' @return Vector of axis lengths.
 #' @export
-#'
 #' @examples
 #' fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 #' ds <- open_ncdf(fn)
@@ -275,3 +321,10 @@ dimnames.CFAxis <- function(x) {
   x$dimnames
 }
 
+#' Compact display of an axis.
+#' @param object A `CFAxis` instance or any descendant.
+#' @param ... Ignored.
+#' @export
+str.CFAxis <- function(object, ...) {
+  cat(paste0("<", object$friendlyClassName, "> ", object$name, "\n"))
+}

@@ -11,13 +11,6 @@ by the \code{CFTime} class in the \code{CFtime} package.
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{CFAxisTime}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{values}}{The \code{CFTime} instance to manage CF time.}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
@@ -37,7 +30,8 @@ vector.}
 \item \href{#method-CFAxisTime-time}{\code{CFAxisTime$time()}}
 \item \href{#method-CFAxisTime-indexOf}{\code{CFAxisTime$indexOf()}}
 \item \href{#method-CFAxisTime-slice}{\code{CFAxisTime$slice()}}
-\item \href{#method-CFAxisTime-sub_axis}{\code{CFAxisTime$sub_axis()}}
+\item \href{#method-CFAxisTime-subset}{\code{CFAxisTime$subset()}}
+\item \href{#method-CFAxisTime-write}{\code{CFAxisTime$write()}}
 \item \href{#method-CFAxisTime-clone}{\code{CFAxisTime$clone()}}
 }
 }
@@ -50,10 +44,8 @@ vector.}
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="write"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-write'><code>ncdfCF::CFAxis$write()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -183,14 +175,14 @@ values in \code{x}, or \code{integer(0)} if none of the values are valid.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxisTime-sub_axis"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxisTime-sub_axis}{}}}
-\subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range. This
+\if{html}{\out{<a id="method-CFAxisTime-subset"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisTime-subset}{}}}
+\subsection{Method \code{subset()}}{
+Return an axis spanning a smaller coordinate range. This
 method returns an axis which spans the range of indices given by the
 \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisTime$sub_axis(group, rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisTime$subset(group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -209,6 +201,31 @@ If the \code{rng} argument includes only a single value, an \link{CFAxisScalar}
 instance is returned with its value being the character timestamp of
 the value in this axis. If the value of the argument is \code{NULL}, return
 the entire axis (possibly as a scalar axis).
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisTime-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisTime-write}{}}}
+\subsection{Method \code{write()}}{
+Write the axis to a netCDF file, including its attributes.
+If the calendar name is "gregorian", it will be set to the functionally
+identical calendar "standard" as the former is deprecated.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisTime$write(nc = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{nc}}{The handle of the netCDF file opened for writing or a group in
+the netCDF file. If \code{NULL}, write to the file or group where the axis
+was read from (the file must have been opened for writing). If not
+\code{NULL}, the handle to a netCDF file or a group therein.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}

@@ -83,6 +83,10 @@ CFDataset <- R6::R6Class("CFDataset",
         vars <- as.data.frame(vars[lengths(vars) > 0L])
         print(.slim.data.frame(vars, ...), right = FALSE, row.names = FALSE)
 
+        ev <- self$attribute("external_variables")
+        if (!is.na(ev))
+          cat("\nExternal variable", if (length(ev) > 1L) "s", ": ", ev, "\n", sep = "")
+
         cat("\nAxes:\n")
         axes <- do.call(rbind, lapply(self$root$axes(), function(a) a$brief()))
         axes <- lapply(axes, function(c) if (all(c == "")) NULL else c)
@@ -223,6 +227,18 @@ CFDataset <- R6::R6Class("CFDataset",
         conv <- self$root$attribute("Conventions")
         if (is.na(conv)) "(not indicated)" else conv
       }
+    },
+
+    #' @field var_names (read-only) Vector of names of variables in this data set.
+    var_names = function(value) {
+      if (missing(value))
+        names(self$variables())
+    },
+
+    #' @field axis_names (read-only) Vector of names of axes in this data set.
+    axis_names = function(value) {
+      if (missing(value))
+        names(self$axes())
     }
   )
 )

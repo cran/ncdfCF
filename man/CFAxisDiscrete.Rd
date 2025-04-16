@@ -26,8 +26,11 @@ vector, or labels for every axis element if they have been set.}
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-CFAxisDiscrete-new}{\code{CFAxisDiscrete$new()}}
+\item \href{#method-CFAxisDiscrete-print}{\code{CFAxisDiscrete$print()}}
 \item \href{#method-CFAxisDiscrete-brief}{\code{CFAxisDiscrete$brief()}}
 \item \href{#method-CFAxisDiscrete-indexOf}{\code{CFAxisDiscrete$indexOf()}}
+\item \href{#method-CFAxisDiscrete-subset}{\code{CFAxisDiscrete$subset()}}
+\item \href{#method-CFAxisDiscrete-write}{\code{CFAxisDiscrete$write()}}
 \item \href{#method-CFAxisDiscrete-clone}{\code{CFAxisDiscrete$clone()}}
 }
 }
@@ -40,13 +43,9 @@ vector, or labels for every axis element if they have been set.}
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="print"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-print'><code>ncdfCF::CFAxis$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="sub_axis"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-sub_axis'><code>ncdfCF::CFAxis$sub_axis()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="write"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-write'><code>ncdfCF::CFAxis$write()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -56,7 +55,7 @@ vector, or labels for every axis element if they have been set.}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(grp, nc_var, nc_dim, orientation)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(grp, nc_var, nc_dim, orientation, dim_only = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -70,8 +69,32 @@ Create a new instance of this class.
 
 \item{\code{orientation}}{The orientation (\code{X}, \code{Y}, \code{Z}, or \code{T}) or \code{""} if
 different or unknown.}
+
+\item{\code{dim_only}}{Flag if this axis only has a dimension on file but no
+NC variable.}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-print"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-print}{}}}
+\subsection{Method \code{print()}}{
+Summary of the axis printed to the console.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$print(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Arguments passed on to other functions. Of particular interest
+is \verb{width = } to indicate a maximum width of attribute columns.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self}, invisibly.
 }
 }
 \if{html}{\out{<hr>}}
@@ -112,6 +135,59 @@ dropped.
 Numeric vector of the same length as \code{x}. Values of \code{x} outside
 of the range of the values in the axis are returned as \code{0} and
 \code{.Machine$integer.max}, respectively.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-subset"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-subset}{}}}
+\subsection{Method \code{subset()}}{
+Return an axis spanning a smaller coordinate range. This
+method returns an axis which spans the range of indices given by the
+\code{rng} argument.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$subset(group, rng = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{group}}{The group to create the new axis in.}
+
+\item{\code{rng}}{The range of indices from this axis to include in the returned
+axis.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A \code{CFAxisDiscrete} instance covering the indicated range of
+indices. If the \code{rng} argument includes only a single value, an
+\link{CFAxisScalar} instance is returned with the value from this axis. If
+the value of the argument is \code{NULL}, return the entire axis (possibly
+as a scalar axis).
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-write}{}}}
+\subsection{Method \code{write()}}{
+Write the axis to a netCDF file, including its attributes,
+but only if it has an associated NC variable in the file.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$write(nc = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{nc}}{The handle of the netCDF file opened for writing or a group in
+the netCDF file. If \code{NULL}, write to the file or group where the axis
+was read from (the file must have been opened for writing). If not
+\code{NULL}, the handle to a netCDF file or a group therein.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}

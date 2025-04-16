@@ -29,7 +29,7 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
 #
 # Arguments:
 # X    - Vector, matrix or array
-# oper - The dimension to operate on
+# oper - The ordinal number of the axis to operate on
 # fac  - The factor over whose levels to apply FUN, or NULL if no levels
 # FUN  - The function to call with the data
 # ...  - Additional arguments passed on to FUN
@@ -86,11 +86,9 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
 
 #' Make a data.frame slimmer by shortening long strings. List elements are
 #' pasted together.
-#'
 #' @param df A data.frame
 #' @param width Maximum width of character entries. If entries are longer than
 #' width - 3, they are truncated and then '...' added.
-#'
 #' @return data.frame with slim columns
 #' @noRd
 .slim.data.frame <- function(df, width = 50L) {

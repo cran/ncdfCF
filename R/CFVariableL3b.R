@@ -157,13 +157,13 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
     #'
     #' @return A [CFArray] instance with all data from this L3b variable.
     data = function() {
-      out_group <- VirtualGroup$new(-1L, "/", "/", NULL)
+      out_group <- NCGroup$new(-1L, "/", "/", NULL, NULL)
       out_group$set_attribute("title", "NC_CHAR", paste("L3b variable", self$name, "regridded to latitude-longitude"))
       out_group$set_attribute("history", "NC_CHAR", paste0(format(Sys.time(), "%FT%T%z"), " R package ncdfCF(", packageVersion("ncdfCF"), ")::CFVariableL3b$data()"))
 
       axes <- lapply(self$axes, function(ax) ax$clone())
 
-      CFArray$new(self$name, out_group, self$as_matrix(), axes, self$crs, self$attributes)
+      CFArray$new(self$name, out_group, self$as_matrix(), private$values_type, axes, self$crs, self$attributes)
     },
 
     #' @description This method extracts a subset of values from the data of the
@@ -227,7 +227,7 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
           stop("Argument `subset` contains elements not corresponding to an axis:", paste(bad, collapse = ", "), call. = FALSE)
       }
 
-      out_group <- VirtualGroup$new(-1L, "/", "/", NULL)
+      out_group <- NCGroup$new(-1L, "/", "/", NULL, NULL)
       out_group$set_attribute("title", "NC_CHAR", paste("Processing result of variable", self$name))
       out_group$set_attribute("history", "NC_CHAR", paste0(format(Sys.time(), "%FT%T%z"), " R package ncdfCF(", packageVersion("ncdfCF"), ")::CFVariableL3b$subset()"))
 
@@ -243,11 +243,11 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
         if (is.null(rng)) rng <- subset[[ c("longitude", "latitude")[ax] ]]
         if (is.null(rng)) rng <- subset[[ c("X", "Y")[ax] ]]
         if (is.null(rng)) {
-          out_axis <- axis$sub_axis(out_group, NULL)
+          out_axis <- axis$subset(out_group, NULL)
         } else {
           idx <- private$range2index(axis, rng, rightmost.closed)
           if (is.null(idx)) return(NULL)
-          out_axis <- axis$sub_axis(out_group, idx)
+          out_axis <- axis$subset(out_group, idx)
         }
 
         # Collect axes for result
@@ -264,7 +264,7 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
       # Assemble the CFArray instance
       axes <- c(out_axes_dim, out_axes_other)
       names(axes) <- sapply(axes, function(a) a$name)
-      CFArray$new(self$name, out_group, d, axes, self$crs, self$attributes)
+      CFArray$new(self$name, out_group, d, private$values_type, axes, self$crs, self$attributes)
     }
   )
 )

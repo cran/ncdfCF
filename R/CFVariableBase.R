@@ -10,6 +10,9 @@
 CFVariableBase <- R6::R6Class("CFVariableBase",
   inherit = CFObject,
   private = list(
+    # The netCDF type of the unpacked data of the variable.
+    values_type = NA_character_,
+
     # Return the R order of dimensional axes that "receive special treatment".
     # Scalar axes are not considered here.
     YXZT = function() {
@@ -17,11 +20,28 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
       match(c("Y", "X", "Z", "T"), orient, nomatch = 0L)
     },
 
+    # Return the CF canonical order of dimensional axes that "receive special
+    # treatment". Scalar axes are not considered here.
+    XYZT = function() {
+      orient <- sapply(self$axes, function(x) if (!inherits(x, "CFAxisScalar")) x$orientation)
+      match(c("X", "Y", "Z", "T"), orient, nomatch = 0L)
+    },
+
     # Return the number of "dimensional" axes, i.e. axes that are associated
     # with a dimension of the data of the variable. This may include dimensions
     # with length 1, but it excludes scalar axes.
     num_dim_axes = function() {
       sum(sapply(self$axes, function(x) !inherits(x, "CFAxisScalar")))
+    },
+
+    # Return the names of the dimensional axes.
+    dim_names = function() {
+      sapply(1:private$num_dim_axes(), function(i) self$axes[[i]]$name)
+    },
+
+    # Return the lengths of the dimensional axes.
+    dim = function() {
+      sapply(1:private$num_dim_axes(), function(i) self$axes[[i]]$length)
     },
 
     # Return a vector with the two auxiliary coordinate variable names, if they
@@ -43,6 +63,10 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
     #'   component of the axes are in decimal degrees of longitude and latitude.
     crs = NULL,
 
+    #' @field cell_measure The [CFCellMeasure] object of this variable, if
+    #'   defined.
+    cell_measure = NULL,
+
     #' @description Create an instance of this class.
     #' @param var The NC variable that describes this data object.
     #' @param group The group that this data object should live in.
@@ -62,7 +86,7 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
     #' what is to be returned.
     #' @return If `want = "axis"` the [CFAxisTime] axis; if `want = "time"` the
     #' `CFTime` instance of the axis, or `NULL` if the variable does not have a
-    #' "time" dimension.
+    #' "time" axis.
     time = function(want = "time") {
       ndx <- sapply(self$axes, inherits, "CFAxisTime")
       if (any(ndx))
@@ -71,7 +95,7 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
       else NULL
     },
 
-    #' @description Summarise the temporal dimension of the data, if present, to
+    #' @description Summarise the temporal domain of the data, if present, to
     #'   a lower resolution, using a user-supplied aggregation function.
     #'
     #'   Attributes are copied from the input data variable or data array. Note
@@ -88,13 +112,6 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
     #'   `fun` returns. So if `fun` has 2 return values, this should be a vector
     #'   of length 2. Any missing values are assigned a default name of
     #'   "result_#" (with '#' being replaced with an ordinal number).
-    #' @param period The period to summarise to. Must be one of either "day",
-    #'   "dekad", "month", "quarter", "season", "year". A "quarter" is the
-    #'   standard calendar quarter such as January-March, April-June, etc. A
-    #'   "season" is a meteorological season, such as December-February,
-    #'   March-May, etc. (any December data is from the year preceding the
-    #'   January data). The period must be of lower resolution than the
-    #'   resolution of the time dimension.
     #' @param fun A function or a symbol or character string naming a function
     #'   that will be applied to each grouping of data. The function must return
     #'   an atomic value (such as `sum()` or `mean()`), or a vector of atomic
@@ -105,10 +122,21 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
     #'   user-defined so you could write a wrapper around a function like `lm()`
     #'   to return values like the intercept or any coefficients from the object
     #'   returned by calling that function.
+    #' @param period The period to summarise to. Must be one of either "day",
+    #'   "dekad", "month", "quarter", "season", "year". A "quarter" is the
+    #'   standard calendar quarter such as January-March, April-June, etc. A
+    #'   "season" is a meteorological season, such as December-February,
+    #'   March-May, etc. (any December data is from the year preceding the
+    #'   January data). The period must be of lower resolution than the
+    #'   resolution of the time axis.
+    #' @param era Optional, integer vector of years to summarise over by the
+    #'   specified `period`. The extreme values of the years will be used. This
+    #'   can also be a list of multiple such  vectors. The elements in the list,
+    #'   if used, should have names as these will be used to label the results.
+    #' @param ... Additional parameters passed on to `fun`.
     #' @return A `CFData` object, or a list thereof with as many `CFData`
-    #'   objects as `fun` returns values, created in the same group as `self`
-    #'   with the summarised data.
-    summarise = function(name, period, fun) {
+    #'   objects as `fun` returns values.
+    summarise = function(name, fun, period, era = NULL, ...) {
       if (missing(name) || missing(period) || missing(fun))
         stop("Arguments 'name', 'period' and 'fun' are required.", call. = FALSE)
       if (!(period %in% c("day", "dekad", "month", "quarter", "season", "year")))
@@ -119,29 +147,13 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
       # Find the time object, create the factor
       tax <- self$time("axis")
       if (is.null(tax))
-        stop("No 'time' dimension found to summarise on.", call. = FALSE)
-      fac <- try(tax$time()$factor(period), silent = TRUE)
-      if (inherits(fac, "try-error"))
-        stop("The 'time' dimension is too short to summarise on.", call. = FALSE)
+        stop("No 'time' axis found to summarise on.", call. = FALSE)
+      f <- try(tax$time()$factor(period, era), silent = TRUE)
+      if (inherits(f, "try-error"))
+        stop("The 'time' axis is too short to summarise on.", call. = FALSE)
+      if (is.factor(f)) f <- list(f)
 
-      # Make a new time axis for the result
-      new_tm <- attr(fac, "CFTime")
-      var <- NCVariable$new(-1L, tax$name, self$group, "NC_DOUBLE", 1L, NULL)
-      len <- length(new_tm)
-      new_ax <- if (len == 1L)
-        CFAxisScalar$new(self$group, var, "T", new_tm)
-      else {
-        dim <- NCDimension$new(-1L, tax$name, len, FALSE)
-        CFAxisTime$new(self$group, var, dim, new_tm)
-      }
-
-      # Summarise
       tm <- sum(private$YXZT() > 0L) # Test which oriented axes are present, T is the last one
-      dt <- private$process_data(tm, fac, fun, na.rm = TRUE)
-
-      # Organise the axes
-      ax <- c(new_ax, self$axes[-tm])
-      names(ax) <- c("time", names(self$axes[-tm]))
 
       # Attributes
       atts <- self$attributes
@@ -157,17 +169,61 @@ CFVariableBase <- R6::R6Class("CFVariableBase",
         }
       }
 
-      # FIXME: set cell_methods
+      res <- lapply(f, function(fac) {
+        # Create a new group for the result
+        grp <- makeGroup(-1L, "/", "/")
 
-      # Create the output
-      len <- length(dt)
-      if (len == 1L)
-        CFArray$new(name[1L], self$group, dt[[1L]], ax, self$crs, atts)
+        # Make a new time axis for the result
+        new_tm <- attr(fac, "CFTime")
+        var <- NCVariable$new(-1L, tax$name, grp, tax$NCvar$vtype, 1L, NULL)
+        len <- length(new_tm)
+        if (len == 1L) {
+          new_ax <- CFAxisScalar$new(grp, var, "T", new_tm)
+          ax <- c(self$axes[-tm], new_ax)
+          names(ax) <- c(names(self$axes[-tm]), tax$name)
+        } else {
+          dim <- NCDimension$new(-1L, tax$name, len, FALSE)
+          new_ax <- CFAxisTime$new(grp, var, dim, new_tm)
+          ax <- c(new_ax, self$axes[-tm])
+          names(ax) <- c(tax$name, names(self$axes[-tm]))
+        }
+        new_ax$attributes <- tax$attributes
+        if (inherits(new_tm, "CFClimatology")) {
+          new_ax$delete_attribute("bounds")
+          new_ax$set_attribute("climatology", "NC_CHAR", "climatology_bnds")
+        }
+
+        # Summarise
+        dt <- private$process_data(tm, fac, fun, ...)
+
+        # Create the output
+        len <- length(dt)
+        if (len == 1L)
+          CFArray$new(name[1L], grp, dt[[1L]], private$values_type, ax, self$crs, atts)
+        else {
+          if (length(name) < len)
+            name <- c(name, paste0("result_", (length(name)+1L):len))
+          out <- lapply(1:len, function(i) CFArray$new(name[i], grp, dt[[i]], private$values_type, ax, self$crs, atts))
+          names(out) <- name
+          out
+        }
+      })
+      if (length(f) == 1L)
+        res[[1L]]
       else {
-        if (length(name) < len)
-          name <- c(name, paste0("result_", (length(name)+1L):len))
-        lapply(1:len, function(i) CFArray$new(name[i], self$group, dt[[i]], ax, self$crs, atts))
+        names(res) <- names(f)
+        res
       }
     }
+  ),
+  active = list(
+    # #' @field axis_labels (read-only) Retrieve the names of any axes that have
+    # #'   labels associated with them.
+    # axis_labels = function(value) {
+    #   ax <- sapply(self$axes, function(x) if (x$has_labels) x$name)
+    #   ax <- unlist(ax[lengths(ax) > 0L])
+    #   names(ax) <- NULL
+    #   ax
+    # }
   )
 )

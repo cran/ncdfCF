@@ -12,20 +12,14 @@ knowledge of their nature. More specific classes descend from this class.
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{CFAxisNumeric}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{values}}{The values of the axis, usually a numeric vector.}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{dimnames}}{(read-only) The coordinates of the axis as a numeric
-vector, or labels for every axis element if they have been set.}
+\item{\code{dimnames}}{(read-only) The coordinates of the axis as a vector.
+These are by default the values of the axis, but it could also be a set
+of auxiliary coordinates, if they have been set.}
 }
 \if{html}{\out{</div>}}
 }
@@ -37,7 +31,7 @@ vector, or labels for every axis element if they have been set.}
 \item \href{#method-CFAxisNumeric-brief}{\code{CFAxisNumeric$brief()}}
 \item \href{#method-CFAxisNumeric-range}{\code{CFAxisNumeric$range()}}
 \item \href{#method-CFAxisNumeric-indexOf}{\code{CFAxisNumeric$indexOf()}}
-\item \href{#method-CFAxisNumeric-sub_axis}{\code{CFAxisNumeric$sub_axis()}}
+\item \href{#method-CFAxisNumeric-subset}{\code{CFAxisNumeric$subset()}}
 \item \href{#method-CFAxisNumeric-clone}{\code{CFAxisNumeric$clone()}}
 }
 }
@@ -50,7 +44,6 @@ vector, or labels for every axis element if they have been set.}
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
@@ -79,7 +72,7 @@ Create a new instance of this class.
 \item{\code{orientation}}{The orientation (\code{X}, \code{Y}, \code{Z}, or \code{T}) or \code{""} if
 different or unknown.}
 
-\item{\code{values}}{The dimension values of this axis.}
+\item{\code{values}}{The coordinates of this axis.}
 }
 \if{html}{\out{</div>}}
 }
@@ -88,7 +81,7 @@ different or unknown.}
 \if{html}{\out{<a id="method-CFAxisNumeric-print"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-print}{}}}
 \subsection{Method \code{print()}}{
-Summary of the time axis printed to the console.
+Summary of the axis printed to the console.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$print(...)}\if{html}{\out{</div>}}
 }
@@ -160,14 +153,14 @@ provided, or \code{integer(0)} if none of the \code{x} values are valid.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxisNumeric-sub_axis"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxisNumeric-sub_axis}{}}}
-\subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range. This
+\if{html}{\out{<a id="method-CFAxisNumeric-subset"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisNumeric-subset}{}}}
+\subsection{Method \code{subset()}}{
+Return an axis spanning a smaller coordinate range. This
 method returns an axis which spans the range of indices given by the
 \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$sub_axis(group, rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$subset(group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

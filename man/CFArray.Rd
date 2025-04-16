@@ -3,13 +3,19 @@
 \docType{class}
 \name{CFArray}
 \alias{CFArray}
-\title{Data extracted from a CF data variable}
+\title{Array data extracted from a CF data variable}
 \description{
 This class holds the data that is extracted from a \link{CFVariable},
 using the \code{data()} or \code{subset()} method. The instance of this class will
 additionally have the axes and other relevant information such as its
 attributes (as well as those of the axes) and the coordinate reference
 system.
+
+Otherwise, a \code{CFArray} is detached from the data set where it was derived
+from. It is self-contained in the sense that all its constituent parts
+(axes, bounds, attributes, etc) are available and directly linked to the
+instance. For performance reasons, axes and their parts (e.g. bounds) are
+shared between instances of \code{CFArray} and \code{CFVariable}.
 
 The class has a number of utility functions to extract the data in specific
 formats:
@@ -27,7 +33,7 @@ metadata set. Package \code{terra} must be installed for this to work.
 points on individual rows. Metadata is not maintained. Package \code{data.table}
 must be installed for this to work.
 
-The temporal dimension of the data, if present, may be summarised using the
+The temporal axis of the data, if present, may be summarised using the
 \code{summarise()} method. The data is returned as a new \code{CFArray} instance.
 
 In general, the metadata from the netCDF resource will be lost when
@@ -37,13 +43,6 @@ recognized by the different format.
 }
 \section{Super classes}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFVariableBase]{ncdfCF::CFVariableBase}} -> \code{CFArray}
-}
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{values}}{The data of this object.}
-}
-\if{html}{\out{</div>}}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -85,7 +84,7 @@ recognized by the different format.
 \subsection{Method \code{new()}}{
 Create an instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFArray$new(name, group, values, axes, crs, attributes)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFArray$new(name, group, values, values_type, axes, crs, attributes)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -99,6 +98,8 @@ prepared for writing into a new netCDF file.}
 
 \item{\code{values}}{The data of this object. The structure of the data depends
 on the method that produced it.}
+
+\item{\code{values_type}}{The unpacked netCDF data type for this object.}
 
 \item{\code{axes}}{A \code{list} of \link{CFAxis} descendant instances that describe the
 axes of the argument \code{value}.}
@@ -121,9 +122,17 @@ An instance of this class.
 \subsection{Method \code{print()}}{
 Print a summary of the data object to the console.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFArray$print()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFArray$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Arguments passed on to other functions. Of particular interest
+is \verb{width = } to indicate a maximum width of attribute columns.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFArray-raw"></a>}}
@@ -196,13 +205,17 @@ variable, \code{units} indicates the physical unit of the data values.
 \subsection{Method \code{save()}}{
 Save the data object to a netCDF file.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFArray$save(fn)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFArray$save(fn, pack = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{fn}}{The name of the netCDF file to create.}
+
+\item{\code{pack}}{Logical to indicate if the data should be packed. Packing is
+only useful for numeric data; packing is not performed on integer values.
+Packing is always to the "NC_SHORT" data type, i.e. 16-bits per value.}
 }
 \if{html}{\out{</div>}}
 }

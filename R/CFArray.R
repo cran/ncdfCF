@@ -1,10 +1,16 @@
-#' Data extracted from a CF data variable
+#' Array data extracted from a CF data variable
 #'
 #' @description This class holds the data that is extracted from a [CFVariable],
 #'   using the `data()` or `subset()` method. The instance of this class will
 #'   additionally have the axes and other relevant information such as its
 #'   attributes (as well as those of the axes) and the coordinate reference
 #'   system.
+#'
+#'   Otherwise, a `CFArray` is detached from the data set where it was derived
+#'   from. It is self-contained in the sense that all its constituent parts
+#'   (axes, bounds, attributes, etc) are available and directly linked to the
+#'   instance. For performance reasons, axes and their parts (e.g. bounds) are
+#'   shared between instances of `CFArray` and `CFVariable`.
 #'
 #'   The class has a number of utility functions to extract the data in specific
 #'   formats:
@@ -21,7 +27,7 @@
 #'   points on individual rows. Metadata is not maintained. Package `data.table`
 #'   must be installed for this to work.
 #'
-#'   The temporal dimension of the data, if present, may be summarised using the
+#'   The temporal axis of the data, if present, may be summarised using the
 #'   `summarise()` method. The data is returned as a new `CFArray` instance.
 #'
 #'   In general, the metadata from the netCDF resource will be lost when
@@ -34,33 +40,52 @@
 CFArray <- R6::R6Class("CFArray",
   inherit = CFVariableBase,
   private = list(
-    # Orient self$values in such a way that it conforms to regular R arrays: axis
+    # The data of this object.
+    values = NULL,
+
+    # The range of the values.
+    actual_range = c(NA_real_, NA_real_),
+
+    # Orient private$values in such a way that it conforms to regular R arrays: axis
     # order will be Y-X-Z-T-others and Y values will go from the top to the bottom.
-    # Returns a new array.
-    orient = function() {
-      order <- private$YXZT()
+    # Alternatively, order private$values in the CF canonical order.
+    # Argument ordering must be "R" or "CF".
+    # Returns a new array with an attribute "axes" that lists axis names in the
+    # order of the new array.
+    orient = function(ordering = "R") {
+      if (ordering == "R")
+        order <- private$YXZT()
+      else if (ordering == "CF")
+        order <- private$XYZT()
+      else
+        stop("Invalid argument for ordering.", call. = FALSE)
+
       if (sum(order) == 0L) {
         warning("Cannot orient data array because axis orientation has not been set")
-        return(self$values)
+        return(private$values)
       }
-      if (all(order == 1L:4L))
-        out <- self$values
-      else {
-        all_dims <- seq(length(dim(self$values)))
+      if (all(diff(order[which(order > 0L)]) > 0L)) {
+        out <- private$values
+        attr(out, "axes") <- private$dim_names()
+      } else {
+        all_dims <- seq(length(dim(private$values)))
         perm <- c(order[which(order > 0L)], all_dims[!(all_dims %in% order)])
-        out <- aperm(self$values, perm)
+        out <- aperm(private$values, perm)
+        attr(out, "axes") <- private$dim_names()[perm]
       }
 
-      # Flip Y-axis, if necessary
-      ynames <- dimnames(out)[[1L]]
-      if (length(ynames) > 1L && as.numeric(ynames[2L]) > as.numeric(ynames[1L])) {
-        dn <- dimnames(out)
-        dims <- dim(out)
-        dim(out) <- c(dims[1L], prod(dims[-1L]))
-        out <- apply(out, 2L, rev)
-        dim(out) <- dims
-        dn[[1L]] <- rev(dn[[1L]])
-        dimnames(out) <- dn
+      if (ordering == "R") {
+        # Flip Y-axis, if necessary
+        ynames <- dimnames(out)[[1L]]
+        if (length(ynames) > 1L && as.numeric(ynames[2L]) > as.numeric(ynames[1L])) {
+          dn <- dimnames(out)
+          dims <- dim(out)
+          dim(out) <- c(dims[1L], prod(dims[-1L]))
+          out <- apply(out, 2L, rev)
+          dim(out) <- dims
+          dn[[1L]] <- rev(dn[[1L]])
+          dimnames(out) <- dn
+        }
       }
 
       out
@@ -68,18 +93,15 @@ CFArray <- R6::R6Class("CFArray",
 
     # Get all the data values
     get_values = function() {
-      self$values
+      private$values
     },
 
-    # Internal apply/tapply over the temporal dimension.
+    # Internal apply/tapply over the temporal axis.
     process_data = function(tdim, fac, fun, ...) {
-      .process.data(self$values, tdim, fac, fun, ...)
+      .process.data(private$values, tdim, fac, fun, ...)
     }
   ),
   public = list(
-    #' @field values The data of this object.
-    values = NULL,
-
     #' @description Create an instance of this class.
     #' @param name The name of the object.
     #' @param group The group that this data should live in. This is usually an
@@ -87,6 +109,7 @@ CFArray <- R6::R6Class("CFArray",
     #'   prepared for writing into a new netCDF file.
     #' @param values The data of this object. The structure of the data depends
     #'   on the method that produced it.
+    #' @param values_type The unpacked netCDF data type for this object.
     #' @param axes A `list` of [CFAxis] descendant instances that describe the
     #'   axes of the argument `value`.
     #' @param crs The [CFGridMapping] instance of this data object, or `NULL`
@@ -94,39 +117,37 @@ CFArray <- R6::R6Class("CFArray",
     #' @param attributes A `data.frame` with the attributes associated with the
     #'   data in argument `value`.
     #' @return An instance of this class.
-    initialize = function(name, group, values, axes, crs, attributes) {
-      # FIXME: Various other data types
-      first <- typeof(as.vector(values)[1L])
-      dt <- if (first == "double") "NC_DOUBLE"
-            else if (first == "integer") "NC_INT"
-            else stop("Unsupported data type for the values", call. = FALSE)
-
+    initialize = function(name, group, values, values_type, axes, crs, attributes) {
       var <- NCVariable$new(-1L, name, group, dt, 0L, NULL)
       var$attributes <- attributes
       super$initialize(var, group, axes, crs)
 
-      self$values <- values
-      if (!all(is.na(self$values)))
-        self$set_attribute("valid_range", dt, range(values, na.rm = TRUE))
+      private$values <- values
+      private$values_type <- values_type
+      if (!all(is.na(private$values))) {
+        private$actual_range <- round(range(values, na.rm = TRUE), 8)
+        self$set_attribute("actual_range", values_type, private$actual_range)
+      }
     },
 
     #' @description Print a summary of the data object to the console.
-    print = function() {
+    #' @param ... Arguments passed on to other functions. Of particular interest
+    #' is `width = ` to indicate a maximum width of attribute columns.
+    print = function(...) {
       cat("<Data array>", self$name, "\n")
       longname <- self$attribute("long_name")
       if (!is.na(longname) && longname != self$name)
         cat("Long name:", longname, "\n")
 
-      if (all(is.na(self$values))) {
+      if (is.na(private$actual_range[1L])) {
         cat("\nValues: -\n")
-        cat(sprintf("    NA: %d (100%%)\n", length(self$values)))
+        cat(sprintf("    NA: %d (100%%)\n", length(private$values)))
       } else {
-        rng <- range(self$values, na.rm = TRUE)
         units <- self$attribute("units")
         if (is.na(units)) units <- ""
-        cat("\nValues: [", rng[1L], " ... ", rng[2L], "] ", units, "\n", sep = "")
-        NAs <- sum(is.na(self$values))
-        cat(sprintf("    NA: %d (%.1f%%)\n", NAs, NAs * 100 / length(self$values)))
+        cat("\nValues: [", private$actual_range[1L], " ... ", private$actual_range[2L], "] ", units, "\n", sep = "")
+        NAs <- sum(is.na(private$values))
+        cat(sprintf("    NA: %d (%.1f%%)\n", NAs, NAs * 100 / length(private$values)))
       }
 
       cat("\nAxes:\n")
@@ -136,7 +157,7 @@ CFArray <- R6::R6Class("CFArray",
       axes <- as.data.frame(axes[lengths(axes) > 0L])
       print(.slim.data.frame(axes, 50L), right = FALSE, row.names = FALSE)
 
-      self$print_attributes()
+      self$print_attributes(...)
     },
 
     #' @description Retrieve the data in the object exactly as it was produced
@@ -144,8 +165,8 @@ CFArray <- R6::R6Class("CFArray",
     #' @return The data in the object. This is usually an `array` with the
     #' contents along axes varying.
     raw = function() {
-      dimnames(self$values) <- self$dimnames
-      self$values
+      dimnames(private$values) <- self$dimnames
+      private$values
     },
 
     #' @description Retrieve the data in the object in the form of an R array,
@@ -155,8 +176,8 @@ CFArray <- R6::R6Class("CFArray",
       if (length(self$axes) < 2L)
         stop("Cannot create an array from data object with only one axis.", call. = FALSE)
 
-      dimnames(self$values) <- self$dimnames
-      private$orient()
+      dimnames(private$values) <- self$dimnames
+      private$orient("R")
     },
 
     #' @description Convert the data to a `terra::SpatRaster` (3D) or a
@@ -191,10 +212,13 @@ CFArray <- R6::R6Class("CFArray",
       if (Ybnds[1L] > Ybnds[2L]) Ybnds <- rev(Ybnds)
       ext <- round(c(Xbnds, Ybnds), 4) # Round off spurious "accuracy"
 
+      # CRS
       wkt <- if (is.null(self$crs)) .wkt2_crs_geo(4326L)
              else self$crs$wkt2(.wkt2_axis_info(self))
+
+      # Create the object
       arr <- self$array()
-      numdims <- length(dim(self$values))
+      numdims <- length(dim(private$values))
       dn <- dimnames(arr)
       if (numdims == 4L) {
         r <- terra::sds(arr, extent = ext, crs = wkt)
@@ -205,6 +229,8 @@ CFArray <- R6::R6Class("CFArray",
         r <- terra::rast(arr, extent = ext, crs = wkt)
         if (numdims == 3L)
           names(r) <- dn[[3L]]
+        else if (length(self$axes) > 2L) # Use coordinate of a scalar axis
+          names(r) <- self$axes[[3L]]$coordinates
       }
 
       r
@@ -225,8 +251,8 @@ CFArray <- R6::R6Class("CFArray",
 
       exp <- expand.grid(lapply(self$axes, function(ax) ax$coordinates),
                          KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
-      dt <- as.data.table(exp)
-      dt[ , eval(self$name) := self$values]
+      dt <- data.table::as.data.table(exp)
+      suppressWarnings(dt[ , eval(self$name) := private$values])
 
       long_name <- self$attribute("long_name")
       if (is.na(long_name)) long_name <- ""
@@ -238,8 +264,11 @@ CFArray <- R6::R6Class("CFArray",
 
     #' @description Save the data object to a netCDF file.
     #' @param fn The name of the netCDF file to create.
+    #' @param pack Logical to indicate if the data should be packed. Packing is
+    #' only useful for numeric data; packing is not performed on integer values.
+    #' Packing is always to the "NC_SHORT" data type, i.e. 16-bits per value.
     #' @return Self, invisibly.
-    save = function(fn) {
+    save = function(fn, pack = FALSE) {
       nc <- RNetCDF::create.nc(fn, prefill = FALSE, format = "netcdf4")
       if (!inherits(nc, "NetCDF"))
         stop("Could not create the netCDF file. Please check that the location of the supplied file name is writable.", call. = FALSE)
@@ -249,7 +278,7 @@ CFArray <- R6::R6Class("CFArray",
       self$group$write_attributes(nc, "NC_GLOBAL")
 
       # Axes
-      lapply(self$axes, function(ax) ax$write(nc))
+      lbls <- unlist(sapply(self$axes, function(ax) {ax$write(nc); ax$coordinate_names}))
 
       # CRS
       if (!is.null(self$crs)) {
@@ -257,17 +286,30 @@ CFArray <- R6::R6Class("CFArray",
         self$set_attribute("grid_mapping", "NC_CHAR", self$crs$name)
       }
 
-      # Data variable
-      # FIXME: Pack data
-      dim_axes <- length(dim(self$values))
-      axis_names <- sapply(self$axes, function(ax) ax$name)
-      RNetCDF::var.def.nc(nc, self$name, self$NCvar$vtype, axis_names[1L:dim_axes])
-      if (length(self$axes) > dim_axes)
-        self$set_attribute("coordinates", "NC_CHAR", paste(axis_names[-(1L:dim_axes)]))
-      self$write_attributes(nc, self$name)
-      RNetCDF::var.put.nc(nc, self$name, self$values)
+      # Packing
+      pack <- pack && !is.na(private$actual_range[1L]) && private$values_type %in% c("NC_FLOAT", "NC_DOUBLE")
+      if (pack) {
+        self$set_attribute("add_offset", private$values_type, (private$actual_range[1L] + private$actual_range[2L]) * 0.5)
+        self$set_attribute("scale_factor", private$values_type, (private$actual_range[2L] - private$actual_range[1L]) / 65534)
+        self$set_attribute("missing_value", "NC_SHORT", -32767)
+      }
 
+      # Data variable
+      dt <- private$orient("CF")
+      axes <- attr(dt, "axes")
+      dim_axes <- length(axes)
+      RNetCDF::var.def.nc(nc, self$name, if (pack) "NC_SHORT" else private$values_type, axes)
+      if (length(self$axes) > dim_axes || length(lbls)) {
+        non_dim_axis_names <- sapply(self$axes, function(ax) ax$name)[-(1L:dim_axes)]
+        self$set_attribute("coordinates", "NC_CHAR", paste(c(non_dim_axis_names, lbls), collapse = " "))
+      }
+      self$write_attributes(nc, self$name)
+      RNetCDF::var.put.nc(nc, self$name, dt, pack = pack, na.mode = 2)
       RNetCDF::close.nc(nc)
+
+      if (pack)
+        self$delete_attribute(c("scale_factor", "add_offset", "missing_value"))
+
       invisible(self)
     }
   ),
@@ -275,7 +317,7 @@ CFArray <- R6::R6Class("CFArray",
     #' @field dimnames (read-only) Retrieve dimnames of the data object.
     dimnames = function(value) {
       if (missing(value)) {
-        len <- length(dim(self$values))
+        len <- length(dim(private$values))
         dn <- lapply(1:len, function(ax) dimnames(self$axes[[ax]]))
         names(dn) <- sapply(1:len, function(ax) self$axes[[ax]]$name)
         dn

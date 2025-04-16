@@ -20,13 +20,15 @@ NCVariable <- R6::R6Class("NCVariable",
   ),
   public = list(
     #' @field group NetCDF group where this variable is located.
-    group   = NULL,
+    group = NULL,
 
-    #' @field vtype The netCDF data type of this variable.
-    vtype   = NULL,
+    #' @field vtype The netCDF data type of this variable. This could be the
+    #' packed type. Don't check this field but use the appropriate method in the
+    #' class of the object whose data type you are looking for.
+    vtype = NULL,
 
     #' @field ndims Number of dimensions that this variable uses.
-    ndims   = -1L,
+    ndims = -1L,
 
     #' @field dimids Vector of dimension identifiers that this variable uses.
     #'   These are the so-called "NUG coordinate variables".
@@ -47,6 +49,9 @@ NCVariable <- R6::R6Class("NCVariable",
     #' @param dimids The identifiers of the dimensions this variable uses.
     #' @return An instance of this class.
     initialize = function(id, name, group, vtype, ndims, dimids) {
+      if (group$has_name(name))
+        stop(paste0("Object with name '", name, "' already exists in the group."), call. = FALSE)
+
       super$initialize(id, name)
       self$group <- group
       self$vtype <- vtype

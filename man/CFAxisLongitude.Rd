@@ -25,7 +25,7 @@ that crosses the 0-360 degree boundary.)
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-CFAxisLongitude-new}{\code{CFAxisLongitude$new()}}
-\item \href{#method-CFAxisLongitude-sub_axis}{\code{CFAxisLongitude$sub_axis()}}
+\item \href{#method-CFAxisLongitude-subset}{\code{CFAxisLongitude$subset()}}
 \item \href{#method-CFAxisLongitude-clone}{\code{CFAxisLongitude$clone()}}
 }
 }
@@ -38,7 +38,6 @@ that crosses the 0-360 degree boundary.)
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="label_set"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-label_set'><code>ncdfCF::CFAxis$label_set()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
@@ -68,20 +67,20 @@ Create a new instance of this class.
 
 \item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
 
-\item{\code{values}}{The dimension values of this axis.}
+\item{\code{values}}{The coordinates of this axis.}
 }
 \if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxisLongitude-sub_axis"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxisLongitude-sub_axis}{}}}
-\subsection{Method \code{sub_axis()}}{
-Return an axis spanning a smaller dimension range. This
+\if{html}{\out{<a id="method-CFAxisLongitude-subset"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisLongitude-subset}{}}}
+\subsection{Method \code{subset()}}{
+Return an axis spanning a smaller coordinate range. This
 method returns an axis which spans the range of indices given by the
 \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisLongitude$sub_axis(group, rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisLongitude$subset(group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

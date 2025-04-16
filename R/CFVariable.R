@@ -36,7 +36,7 @@ CFVariable <- R6::R6Class("CFVariable",
       } else {
         if (length(rng) == 1L) closed <- TRUE
         rng <- range(rng)
-        vals <- axis$values
+        vals <- axis$coordinates
         idx <- if (closed)
           which(vals >= rng[1L] & vals <= rng[2L], arr.ind = TRUE)
         else
@@ -110,14 +110,12 @@ CFVariable <- R6::R6Class("CFVariable",
     # variable is below a certain threshold, read the data and process in one
     # go. Otherwise processing goes per factor level. In other words, for each
     # factor level the data is read from file, to which the function is applied.
-    # Note that the data per factor level MUST be contiguous or else the
-    # calculation will be erroneous.
-    # This is usually applied over the temporal dimension but could be others
+    # This is usually applied over the temporal domain but could be others
     # as well (untested).
     process_data = function(tdim, fac, fun, ...) {
       # Read the whole data array if size is manageable
-      #if (prod(sapply(self$axes, function(x) x$length)) < 1e8) #FIXME: Make package env variable
-      #  return(.process.data(private$get_values(), tdim, fac, fun, ...))
+      if (prod(sapply(self$axes, function(x) x$length)) < CF$memory_cell_limit)
+        return(.process.data(private$get_values(), tdim, fac, fun, ...))
 
       # If data variable is large, go by individual factor levels
       num_dims <- private$num_dim_axes()
@@ -130,32 +128,51 @@ CFVariable <- R6::R6Class("CFVariable",
       h <- self$NCvar$group$handle
       nm <- self$name
       for (l in 1L:lvls) {
-        rng <- range(which(ndx == l))
-        start[tdim] <- rng[1L]
-        count[tdim] <- rng[2L] - rng[1L] + 1L
-        values <- RNetCDF::var.get.nc(h, nm, start, count, collapse = FALSE, unpack = TRUE, fitnum = TRUE)
+        indices <- which(ndx == l)
+        dff <- diff(indices)
+        if (all(dff == 1L)) {       # Data is contiguous per factor level
+          rng <- range(indices)
+          start[tdim] <- rng[1L]
+          count[tdim] <- rng[2L] - rng[1L] + 1L
+          values <- RNetCDF::var.get.nc(h, nm, start, count, collapse = FALSE, unpack = TRUE, fitnum = TRUE)
+        } else {                    # Era factors have disparate indices
+          cutoffs <- c(0L, which(c(dff, 2L) > 1L))
+          values <- lapply(2L:length(cutoffs), function(i) {
+            start[tdim] <- indices[cutoffs[i - 1L] + 1L]
+            count[tdim] <- cutoffs[i] - cutoffs[i - 1L]
+            RNetCDF::var.get.nc(h, nm, start, count, collapse = FALSE, unpack = TRUE, fitnum = TRUE)
+          })
+          values <- abind::abind(values, along = num_dims)
+        }
         d[[l]] <- .process.data(values, tdim, FUN = fun, ...)
         # d is a list with lvls elements, each element a list with elements for
         # the number of function results, possibly 1; each element having an
-        # array of dimensions from self$values that are not tdim.
+        # array of dimensions from private$values that are not tdim.
       }
       res_dim <- dim(d[[1L]][[1L]])
-      dims <- c(if ((len <- length(d)) > 1L) len, res_dim)
+      tdim_len <- length(d)
+      if (tdim_len > 1L) {
+        dims <- c(res_dim,  tdim_len)
+        perm <- c(num_dims, 1L:(num_dims - 1L))
+      } else
+        dims <- res_dim
 
-      len <- length(d[[1L]])
-      if (len > 1L) {
+      fun_len <- length(d[[1L]])
+      out <- if (fun_len > 1L) {
         # Multiple function result values so get all arrays for every result
         # value and unlist those
-        lapply(1:len, function(r) {
+        lapply(1:fun_len, function(r) {
             x <- unlist(lapply(d, function(lvl) lvl[[r]]), recursive = FALSE, use.names = FALSE)
             dim(x) <- dims
-            x
+            if (tdim_len > 1L)
+              aperm(x, perm)
+            else x
           })
       } else {
         # Single function result so unlist
-        d <- unlist(d, recursive = FALSE, use.names = FALSE)
+        d <- unlist(d, recursive = TRUE, use.names = FALSE)
         dim(d) <- dims
-        list(d)
+        list(if (tdim_len > 1L) aperm(d, perm) else d)
       }
     }
   ),
@@ -169,6 +186,19 @@ CFVariable <- R6::R6Class("CFVariable",
     initialize = function(grp, nc_var, axes) {
       super$initialize(nc_var, grp, axes, NULL)
       nc_var$CF <- self
+
+      # Sanitize attributes for valid range, missing values and packing
+      private$values_type <- self$attribute("scale_factor", "type")
+      if (is.na(private$values_type))
+        private$values_type <- self$attribute("add_offset", "type")
+      if (!is.na(private$values_type))
+        # Data is packed in the netCDF file, throw away the attributes and let
+        # RNetCDF deal with unpacking when reading the data.
+        self$delete_attribute(c("_FillValue", "scale_factor", "add_offset",
+                                "valid_range", "valid_min", "valid_max",
+                                "missing_value"))
+      else
+        private$values_type <- nc_var$vtype
     },
 
     #' @description Print a summary of the data variable to the console.
@@ -194,6 +224,10 @@ CFVariable <- R6::R6Class("CFVariable",
       if (all(axes$group == "/")) axes$group <- NULL
       axes <- as.data.frame(axes[lengths(axes) > 0L])
       print(.slim.data.frame(axes, ...), right = FALSE, row.names = FALSE)
+
+      if (!is.null(self$cell_measure)) {
+        cat("\nCell measure: ", self$cell_measure$name, " (", self$cell_measure$measure, ")\n", sep = "")
+      }
 
       if (!is.null(private$llgrid)) {
         cat("\nAuxiliary longitude-latitude grid:\n")
@@ -246,7 +280,7 @@ CFVariable <- R6::R6Class("CFVariable",
     #' @description Retrieve all data of the variable.
     #' @return A [CFArray] instance with all data from this variable.
     data = function() {
-      out_group <- VirtualGroup$new(-1L, "/", "/", NULL)
+      out_group <- NCGroup$new(-1L, "/", "/", NULL, NULL)
       out_group$set_attribute("title", "NC_CHAR", paste("Data copy of variable", self$name))
       out_group$set_attribute("history", "NC_CHAR", paste0(format(Sys.time(), "%FT%T%z"), " R package ncdfCF(", packageVersion("ncdfCF"), "): CFVariable::data()"))
 
@@ -255,7 +289,7 @@ CFVariable <- R6::R6Class("CFVariable",
       atts <- self$attributes
       atts <- atts[!(atts$name == "coordinates"), ]
 
-      CFArray$new(self$name, out_group, d, axes, self$crs, atts)
+      CFArray$new(self$name, out_group, d, private$values_type, axes, self$crs, atts)
     },
 
     #' @description This method extracts a subset of values from the array of
@@ -366,7 +400,7 @@ CFVariable <- R6::R6Class("CFVariable",
       if (length(bad))
         stop("Argument `subset` contains elements not corresponding to an axis:", paste(bad, collapse = ", "), call. = FALSE)
 
-      out_group <- VirtualGroup$new(-1L, "/", "/", NULL)
+      out_group <- NCGroup$new(-1L, "/", "/", NULL, NULL)
       out_group$set_attribute("title", "NC_CHAR", paste("Processing result of variable", self$name))
       out_group$set_attribute("history", "NC_CHAR", paste0(format(Sys.time(), "%FT%T%z"), " R package ncdfCF(", packageVersion("ncdfCF"), ")::CFVariable$subset()"))
 
@@ -413,14 +447,14 @@ CFVariable <- R6::R6Class("CFVariable",
           if (is.null(rng)) rng <- subset[[ orientations[ax] ]]
           if (is.null(rng)) {
             ZT_dim <- c(ZT_dim, axis$length)
-            out_axis <- axis$sub_axis(out_group, NULL)
+            out_axis <- axis$subset(out_group, NULL)
           } else {
             idx <- private$range2index(axis, rng, rightmost.closed)
             if (is.null(idx)) return(NULL)
             start[ax] <- idx[1L]
             count[ax] <- idx[2L] - idx[1L] + 1L
             ZT_dim <- c(ZT_dim, count[ax])
-            out_axis <- axis$sub_axis(out_group, idx)
+            out_axis <- axis$subset(out_group, idx)
           }
         }
 
@@ -452,9 +486,10 @@ CFVariable <- R6::R6Class("CFVariable",
       }
 
       # Assemble the CFArray instance
-      axes <- c(out_axes_dim, out_axes_other)
+      scalars <- self$axes[-(1L:num_axes)]
+      axes <- c(out_axes_dim, out_axes_other, scalars)
       names(axes) <- sapply(axes, function(a) a$name)
-      CFArray$new(self$name, out_group, d, axes, crs, atts)
+      CFArray$new(self$name, out_group, d, private$values_type, axes, crs, atts)
     }
   ),
   active = list(
