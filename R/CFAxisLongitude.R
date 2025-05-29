@@ -13,12 +13,14 @@ CFAxisLongitude <- R6::R6Class("CFAxisLongitude",
   public = list(
 
     #' @description Create a new instance of this class.
-    #' @param grp The group that contains the netCDF variable.
+    #'
+    #'   Creating a new longitude axis is more easily done with the
+    #'   [makeLongitudeAxis()] function.
     #' @param nc_var The netCDF variable that describes this instance.
     #' @param nc_dim The netCDF dimension that describes the dimensionality.
     #' @param values The coordinates of this axis.
-    initialize = function(grp, nc_var, nc_dim, values) {
-      super$initialize(grp, nc_var, nc_dim, "X", values)
+    initialize = function(nc_var, nc_dim, values) {
+      super$initialize(nc_var, nc_dim, "X", values)
     },
 
     #' @description Return an axis spanning a smaller coordinate range. This
@@ -30,39 +32,23 @@ CFAxisLongitude <- R6::R6Class("CFAxisLongitude",
     #'   axis.
     #'
     #' @return A `CFAxisLongitude` instance covering the indicated range of
-    #'   indices. If the `rng` argument includes only a single value, an
-    #'   [CFAxisScalar] instance is returned with the value from this axis. If
-    #'   the value of the argument is `NULL`, return the entire axis (possibly
-    #'   as a scalar axis).
+    #'   indices. If the value of the argument is `NULL`, return the entire
+    #'   axis.
     subset = function(group, rng = NULL) {
       var <- NCVariable$new(-1L, self$name, group, "NC_DOUBLE", 1L, NULL)
 
-      .make_scalar <- function(idx) {
-        scl <- CFAxisScalar$new(group, var, "X", idx)
-        bnds <- self$bounds
-        if (inherits(bnds, "CFBounds")) scl$bounds <- bnds$sub_bounds(group, idx)
-        private$subset_coordinates(scl, idx)
-        scl
-      }
-
       if (is.null(rng)) {
-        if (length(private$values) > 1L) {
-          ax <- self$clone()
-          ax$group <- group
-          ax
-        } else
-          .make_scalar(1L)
+        ax <- self$clone()
+        ax$group <- group
+        ax
       } else {
-        if (rng[1L] == rng[2L])
-          .make_scalar(private$values[rng[1L]])
-        else {
-          dim <- NCDimension$new(-1L, self$name, rng[2L] - rng[1L] + 1L, FALSE)
-          lon <- CFAxisLongitude$new(group, var, dim, private$values[rng[1L]:rng[2L]])
-          bnds <- self$bounds
-          if (inherits(bnds, "CFBounds")) lon$bounds <- bnds$sub_bounds(group, rng)
-          private$subset_coordinates(lon, idx)
-          lon
-        }
+        rng <- range(rng)
+        dim <- NCDimension$new(-1L, self$name, rng[2L] - rng[1L] + 1L, FALSE)
+        lon <- CFAxisLongitude$new(var, dim, private$values[rng[1L]:rng[2L]])
+        bnds <- self$bounds
+        if (inherits(bnds, "CFBounds")) lon$bounds <- bnds$sub_bounds(group, rng)
+        private$subset_coordinates(lon, idx)
+        lon
       }
     }
   ),

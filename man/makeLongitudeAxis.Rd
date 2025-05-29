@@ -4,25 +4,20 @@
 \alias{makeLongitudeAxis}
 \title{Create a longitude axis}
 \usage{
-makeLongitudeAxis(id, name, group, length, values, bounds = NULL, units = "")
+makeLongitudeAxis(name, group, values, bounds = NULL)
 }
 \arguments{
-\item{id}{Id of the axis.}
-
 \item{name}{Name of the axis.}
 
 \item{group}{Group to place the axis in.}
 
-\item{length}{Length of the axis.}
-
 \item{values}{The coordinate values.}
 
-\item{bounds}{The bounds of the coordinate values, or \code{NULL} if not available.}
-
-\item{units}{A character string with the axis units.}
+\item{bounds}{The bounds of the coordinate values, or \code{NULL} if not
+available.}
 }
 \value{
-A \code{CFAxisLongitude} instance.
+A \link{CFAxisLongitude} instance.
 }
 \description{
 With this method you can create a longitude axis to use with new \link{CFArray}

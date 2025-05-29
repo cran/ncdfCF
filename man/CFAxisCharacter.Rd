@@ -30,6 +30,8 @@ vector.}
 \itemize{
 \item \href{#method-CFAxisCharacter-new}{\code{CFAxisCharacter$new()}}
 \item \href{#method-CFAxisCharacter-brief}{\code{CFAxisCharacter$brief()}}
+\item \href{#method-CFAxisCharacter-identical}{\code{CFAxisCharacter$identical()}}
+\item \href{#method-CFAxisCharacter-append}{\code{CFAxisCharacter$append()}}
 \item \href{#method-CFAxisCharacter-indexOf}{\code{CFAxisCharacter$indexOf()}}
 \item \href{#method-CFAxisCharacter-clone}{\code{CFAxisCharacter$clone()}}
 }
@@ -37,12 +39,14 @@ vector.}
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="print"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-print'><code>ncdfCF::CFAxis$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
@@ -57,15 +61,16 @@ vector.}
 \if{latex}{\out{\hypertarget{method-CFAxisCharacter-new}{}}}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
+
+Creating a new character axis is more easily done with the \code{\link[=makeAxis]{makeAxis()}}
+function.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$new(grp, nc_var, nc_dim, orientation, values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$new(nc_var, nc_dim, orientation, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The group that contains the netCDF variable.}
-
 \item{\code{nc_var}}{The netCDF variable that describes this instance.}
 
 \item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
@@ -92,13 +97,57 @@ A 1-row \code{data.frame} with some details of the axis.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisCharacter-identical"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisCharacter-identical}{}}}
+\subsection{Method \code{identical()}}{
+Tests if the axis passed to this method is identical to
+\code{self}.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$identical(axis)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{axis}}{The \code{CFAxisCharacter} instance to test.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{TRUE} if the two axes are identical, \code{FALSE} if not.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisCharacter-append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisCharacter-append}{}}}
+\subsection{Method \code{append()}}{
+Append a vector of values at the end of the current values
+of the axis.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$append(from)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{from}}{An instance of \code{CFAxisCharacter} whose values to append to
+the values of \code{self}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{CFAxisCharacter} instance with values from \code{self} and the
+\code{from} axis appended.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisCharacter-indexOf"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisCharacter-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
 Find indices in the axis domain. Given a vector of character
-strings \code{x}, find their indices in the values of the axis.
+strings \code{x}, find their indices in the coordinates of the axis.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$indexOf(x, method = "constant")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisCharacter$indexOf(x, method = "constant", rightmost.closed = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -107,12 +156,14 @@ strings \code{x}, find their indices in the values of the axis.
 \item{\code{x}}{Vector of character strings to find axis indices for.}
 
 \item{\code{method}}{Ignored.}
+
+\item{\code{rightmost.closed}}{Ignored.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-Numeric vector of the same length as \code{x}. Values of \code{x} outside of
-the range of the values in the axis are returned as \code{NA}.
+Numeric vector of the same length as \code{x}. Values of \code{x} that are
+not equal to a coordinate of the axis are returned as \code{NA}.
 }
 }
 \if{html}{\out{<hr>}}

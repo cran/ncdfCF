@@ -37,12 +37,14 @@ https://oceancolor.gsfc.nasa.gov/resources/docs/technical/ocean_level-3_binned_d
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="profile"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-profile'><code>ncdfCF::CFVariableBase$profile()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="summarise"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-summarise'><code>ncdfCF::CFVariableBase$summarise()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="time"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-time'><code>ncdfCF::CFVariableBase$time()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariable" data-id="brief"><a href='../../ncdfCF/html/CFVariable.html#method-CFVariable-brief'><code>ncdfCF::CFVariable$brief()</code></a></span></li>
@@ -122,31 +124,28 @@ A \link{CFArray} instance with all data from this L3b variable.
 This method extracts a subset of values from the data of the
 variable, with the range along both axes expressed in decimal degrees.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFVariableL3b$subset(subset = NULL, aoi = NULL, rightmost.closed = FALSE, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFVariableL3b$subset(..., .aoi = NULL, rightmost.closed = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{subset}}{A list with the range to extract from each axis. The list
-should have elements for the axes to extract a subset from - if an axis
-is not present in the list the entire axis will be extracted from the
-array. List element names should be the axis name or designator
-\code{longitude} or \code{X}, or \code{latitude} or \code{Y}. Axis designators and names
-are case-sensitive and can be specified in any order. If values for the
-range per axis fall outside of the extent of the axis, the range is
-clipped to the extent of the axis.}
+\item{\code{...}}{One or more arguments of the form \code{axis = range}. The "axis"
+part should be the name of axis \code{longitude} or \code{latitude} or its
+orientation \code{X} or \code{Y}. The "range" part is a vector of values
+representing coordinates along the axis where to extract data. Axis
+designators and names are case-sensitive and can be specified in any
+order. If values for the range of an axis fall outside of the extent of
+the axis, the range is clipped to the extent of the axis.}
 
-\item{\code{aoi}}{Optional, an area-of-interest instance of class \code{AOI} created
+\item{\code{.aoi}}{Optional, an area-of-interest instance of class \code{AOI} created
 with the \code{\link[=aoi]{aoi()}} function to indicate the horizontal area that should
 be extracted. The longitude and latitude coordinates must be included;
 the X and Y resolution will be calculated if not given. When provided,
-this argument will take precedence over the \code{subset} argument.}
+this argument will take precedence over the \code{...} argument.}
 
 \item{\code{rightmost.closed}}{Single logical value to indicate if the upper
 boundary of range in each axis should be included.}
-
-\item{\code{...}}{Ignored.}
 }
 \if{html}{\out{</div>}}
 }
@@ -176,7 +175,7 @@ in argument \code{subset} does not reorder the axes in the result; use the
 
 \subsection{Returns}{
 A \link{CFArray} instance, having an array with axes and attributes of
-the variable, or \code{NULL} if one or more of the elements in the \code{subset}
+the variable, or \code{NULL} if one or more of the elements in the \code{...}
 argument falls entirely outside of the range of the axis. Note that
 degenerate dimensions (having \code{length(.) == 1}) are dropped from the
 array but the corresponding axis is maintained in the result as a

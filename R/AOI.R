@@ -23,12 +23,15 @@ AOI <- R6::R6Class("AOI",
     #'   which this AOI will be applied, e.g. `[-180,180]` or `[0,360]`.
     #' @param resolution The separation between adjacent grid cell, in longitude
     #'   and latitude directions, in decimal degrees.
-    initialize = function(lonMin, lonMax, latMin, latMax, resolution) {
+    initialize = function(lonMin = NULL, lonMax = NULL, latMin = NULL, latMax = NULL, resolution = c(NULL, NULL)) {
       private$minLon <- lonMin
       private$maxLon <- lonMax
       private$minLat <- latMin
       private$maxLat <- latMax
-      private$res <- resolution
+      if (length(resolution == 1L))
+        private$res <- c(resolution, resolution)
+      else
+        private$res <- resolution[1L:2L]
     },
 
     #' @description Summary of the area of interest printed to the console.
@@ -61,13 +64,11 @@ AOI <- R6::R6Class("AOI",
 
       lon_var <- NCVariable$new(-1L, "lon_bnds_aoi", group, "NC_DOUBLE", 1L, NULL)
       lon_vals <- seq(from = private$minLon, by = private$res[1L], length = dims[2L] + 1L)
-      lon_vals <- c(lon_vals[1:dims[2L]], lon_vals[2:(dims[2L] + 1L)])
-      dim(lon_vals) <- c(2L, dims[2L])
+      lon_vals <- rbind(lon_vals[1:dims[2L]], lon_vals[-1L])
 
       lat_var <- NCVariable$new(-1L, "lat_bnds_aoi", group, "NC_DOUBLE", 1L, NULL)
       lat_vals <- seq(from = private$minLat, by = private$res[2L], length = dims[1L] + 1L)
-      lat_vals <- c(lat_vals[1:dims[1L]], lat_vals[2:(dims[1L] + 1L)])
-      dim(lat_vals) <- c(2L, dims[1L])
+      lat_vals <- rbind(lat_vals[1:dims[1L]], lat_vals[-1L])
 
       dim <- NCDimension$new(-1L, "nv", 2L, FALSE)
 

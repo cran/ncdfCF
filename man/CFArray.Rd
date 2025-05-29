@@ -5,11 +5,11 @@
 \alias{CFArray}
 \title{Array data extracted from a CF data variable}
 \description{
-This class holds the data that is extracted from a \link{CFVariable},
-using the \code{data()} or \code{subset()} method. The instance of this class will
-additionally have the axes and other relevant information such as its
-attributes (as well as those of the axes) and the coordinate reference
-system.
+This class holds the data that is extracted from a \link{CFVariable}
+using the \code{data()}, \code{subset()} or \code{profile()} method. The instance of this
+class will additionally have the axes and other relevant information such
+as its attributes (as well as those of the axes) and the coordinate
+reference system.
 
 Otherwise, a \code{CFArray} is detached from the data set where it was derived
 from. It is self-contained in the sense that all its constituent parts
@@ -58,6 +58,7 @@ recognized by the different format.
 \item \href{#method-CFArray-print}{\code{CFArray$print()}}
 \item \href{#method-CFArray-raw}{\code{CFArray$raw()}}
 \item \href{#method-CFArray-array}{\code{CFArray$array()}}
+\item \href{#method-CFArray-append}{\code{CFArray$append()}}
 \item \href{#method-CFArray-terra}{\code{CFArray$terra()}}
 \item \href{#method-CFArray-data.table}{\code{CFArray$data.table()}}
 \item \href{#method-CFArray-save}{\code{CFArray$save()}}
@@ -67,12 +68,14 @@ recognized by the different format.
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="profile"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-profile'><code>ncdfCF::CFVariableBase$profile()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="summarise"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-summarise'><code>ncdfCF::CFVariableBase$summarise()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFVariableBase" data-id="time"><a href='../../ncdfCF/html/CFVariableBase.html#method-CFVariableBase-time'><code>ncdfCF::CFVariableBase$time()</code></a></span></li>
 </ul>
@@ -102,13 +105,13 @@ on the method that produced it.}
 \item{\code{values_type}}{The unpacked netCDF data type for this object.}
 
 \item{\code{axes}}{A \code{list} of \link{CFAxis} descendant instances that describe the
-axes of the argument \code{value}.}
+axes of the argument \code{values}.}
 
 \item{\code{crs}}{The \link{CFGridMapping} instance of this data object, or \code{NULL}
 when no grid mapping is available.}
 
 \item{\code{attributes}}{A \code{data.frame} with the attributes associated with the
-data in argument \code{value}.}
+data in argument \code{values}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -164,6 +167,35 @@ An \code{array} of data in R ordering.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFArray-append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFArray-append}{}}}
+\subsection{Method \code{append()}}{
+Append the data from another \code{CFArray} instance to the
+current instance, along one of the axes. The operation will only
+succeed if the axes other than the one to append along have the same
+coordinates and the coordinates of the axis to append along have to be
+monotonically increasing or decreasing after appending.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFArray$append(from, along)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{from}}{The \code{CFArray} instance to append from.}
+
+\item{\code{along}}{The name of the axis to append along. This must be a single
+character string and the named axis has to be present both in \code{self}
+and in the \code{CFArray} instance in argument \code{from}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self}, invisibly, with the arrays from \code{self} and \code{from}
+appended.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFArray-terra"></a>}}
 \if{latex}{\out{\hypertarget{method-CFArray-terra}{}}}
 \subsection{Method \code{terra()}}{
@@ -188,15 +220,24 @@ Retrieve the data in the object in the form of a
 \code{data.table}. The \code{data.table} package needs to be installed for this
 method to work.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFArray$data.table()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFArray$data.table(var_as_column = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{var_as_column}}{Logical to flag if the name of the variable should
+become a column (\code{TRUE}) or be used as the name of the column with the
+data values (\code{FALSE}, default). Including the name of the variable as a
+column is useful when multiple \code{data.table}s are merged into one.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
-A \code{data.table} with all data points in individual rows. All axes,
-including scalar axes, will become columns. The \code{name} of this data
-variable will be used as the column that holds the data values. Two
-attributes are added: \code{name} indicates the long name of this data
-variable, \code{units} indicates the physical unit of the data values.
+A \code{data.table} with all data points in individual rows. All axes
+will become columns. Two attributes are added: \code{name} indicates the
+long name of this data variable, \code{units} indicates the physical unit of
+the data values.
 }
 }
 \if{html}{\out{<hr>}}

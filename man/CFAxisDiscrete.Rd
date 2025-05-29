@@ -28,6 +28,7 @@ vector, or labels for every axis element if they have been set.}
 \item \href{#method-CFAxisDiscrete-new}{\code{CFAxisDiscrete$new()}}
 \item \href{#method-CFAxisDiscrete-print}{\code{CFAxisDiscrete$print()}}
 \item \href{#method-CFAxisDiscrete-brief}{\code{CFAxisDiscrete$brief()}}
+\item \href{#method-CFAxisDiscrete-append}{\code{CFAxisDiscrete$append()}}
 \item \href{#method-CFAxisDiscrete-indexOf}{\code{CFAxisDiscrete$indexOf()}}
 \item \href{#method-CFAxisDiscrete-subset}{\code{CFAxisDiscrete$subset()}}
 \item \href{#method-CFAxisDiscrete-write}{\code{CFAxisDiscrete$write()}}
@@ -37,12 +38,15 @@ vector, or labels for every axis element if they have been set.}
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="identical"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-identical'><code>ncdfCF::CFAxis$identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
@@ -54,15 +58,16 @@ vector, or labels for every axis element if they have been set.}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-new}{}}}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
+
+Creating a new discrete axis is more easily done with the
+\code{\link[=makeDiscreteAxis]{makeDiscreteAxis()}} function.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(grp, nc_var, nc_dim, orientation, dim_only = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(nc_var, nc_dim, orientation, dim_only = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The group that contains the netCDF variable.}
-
 \item{\code{nc_var}}{The netCDF variable that describes this instance.}
 
 \item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
@@ -111,6 +116,31 @@ A 1-row \code{data.frame} with some details of the axis.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-append}{}}}
+\subsection{Method \code{append()}}{
+Append a vector of values at the end of the current values
+of the axis. In a discrete axis the values are always a simple sequence
+so the appended values extend the sequence, rather than using the
+values from axis \code{from}.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$append(from)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{from}}{An instance of \code{CFAxisDiscrete} whose length to add to the
+length of \code{self}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{CFAxisDiscrete} with the combined length of \code{self} and the
+\code{from} axis.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisDiscrete-indexOf"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
@@ -119,7 +149,7 @@ values \code{x}, find their indices in the values of the axis. In effect,
 this returns index values into the axis, but outside values will be
 dropped.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$indexOf(x, method = "constant")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$indexOf(x, method = "constant", rightmost.closed = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -128,13 +158,14 @@ dropped.
 \item{\code{x}}{Vector of numeric values to find axis indices for.}
 
 \item{\code{method}}{Ignored.}
+
+\item{\code{rightmost.closed}}{Ignored.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 Numeric vector of the same length as \code{x}. Values of \code{x} outside
-of the range of the values in the axis are returned as \code{0} and
-\code{.Machine$integer.max}, respectively.
+of the range of the values in the axis are returned as \code{NA}.
 }
 }
 \if{html}{\out{<hr>}}
@@ -160,10 +191,8 @@ axis.}
 }
 \subsection{Returns}{
 A \code{CFAxisDiscrete} instance covering the indicated range of
-indices. If the \code{rng} argument includes only a single value, an
-\link{CFAxisScalar} instance is returned with the value from this axis. If
-the value of the argument is \code{NULL}, return the entire axis (possibly
-as a scalar axis).
+indices. If the value of the argument is \code{NULL}, return the entire
+axis.
 }
 }
 \if{html}{\out{<hr>}}

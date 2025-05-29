@@ -36,14 +36,15 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
   ),
   public = list(
     #' @description Create a new instance of this class.
-    #' @param grp The group that contains the netCDF variable.
+    #'
+    #'   Creating a new axis is more easily done with the [makeAxis()] function.
     #' @param nc_var The netCDF variable that describes this instance.
     #' @param nc_dim The netCDF dimension that describes the dimensionality.
     #' @param orientation The orientation (`X`, `Y`, `Z`, or `T`) or `""` if
     #' different or unknown.
     #' @param values The coordinates of this axis.
-    initialize = function(grp, nc_var, nc_dim, orientation, values) {
-      super$initialize(grp, nc_var, nc_dim, orientation)
+    initialize = function(nc_var, nc_dim, orientation, values) {
+      super$initialize(nc_var, nc_dim, orientation)
       private$values <- values
       self$set_attribute("actual_range", nc_var$vtype, range(values))
     },
@@ -55,16 +56,22 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
     print = function(...) {
       super$print()
 
-      units <- self$attribute("units")
+      if (private$active_coords == 1L) {
+        crds <- private$get_coordinates()
+        units <- self$attribute("units")
+      } else {
+        crds <- private$aux[[private$active_coords - 1L]]$coordinates
+        units <- private$aux[[private$active_coords - 1L]]$attribute("units")
+      }
       if (is.na(units)) units <- ""
       if (units == "1") units <- ""
 
-      crds <- self$coordinates
       len <- length(crds)
       if (len < 8L)
-        cat("Values     : ", paste(crds, collapse = ", "), "\n", sep = "")
+        cat("Coordinates: ", paste(crds, collapse = ", "), sep = "")
       else
-        cat("Values     : ", crds[1L], ", ", crds[2L], ", ", crds[3L], " ... ", crds[len - 2L], ", ", crds[len - 1L], ", ", crds[len], "\n", sep = "")
+        cat("Coordinates: ", crds[1L], ", ", crds[2L], ", ", crds[3L], " ... ", crds[len - 2L], ", ", crds[len - 1L], ", ", crds[len], sep = "")
+      if (units == "") cat("\n") else cat(" (", units, ")\n", sep = "")
 
       if (!is.null(self$bounds))
         self$bounds$print(...)
@@ -89,22 +96,62 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       range(private$values)
     },
 
-    #' @description Retrieve the indices of supplied values on the axis. If the
-    #' axis has bounds then the supplied values must fall within the bounds to
-    #' be considered valid.
-    #' @param x A numeric vector of values whose indices into the axis to
-    #' extract.
+    #' @description Retrieve the indices of supplied coordinates on the axis. If
+    #'   the axis has bounds then the supplied coordinates must fall within the
+    #'   bounds to be considered valid.
+    #' @param x A numeric vector of coordinates whose indices into the axis to
+    #'   extract.
     #' @param method Extract index values without ("constant", the default) or
-    #' with ("linear") fractional parts.
-    #' @return An integer vector giving the indices in `x` of valid values
-    #' provided, or `integer(0)` if none of the `x` values are valid.
-    indexOf = function(x, method = "constant") {
-      if (length(self$bounds))
-        vals <- c(self$bounds$bounds[1L, 1L], self$bounds$bounds[2L, ])
-      else vals <- private$values
-      idx <- stats::approx(vals, 1L:length(vals), x, method = method, yleft = 0L, yright = .Machine$integer.max)$y
-      idx <- idx[!is.na(idx) & idx > 0 & idx < .Machine$integer.max]
-      as.integer(idx)
+    #'   with ("linear") fractional parts.
+    #' @param rightmost.closed Whether or not to include the upper limit. This
+    #'   parameter is ignored for this class, effectively it always is `TRUE`.
+    #' @return A vector giving the indices in `x` of valid coordinates provided.
+    #'   Values of `x` outside of the range of the coordinates in the axis are
+    #'   returned as `NA`.
+    indexOf = function(x, method = "constant", rightmost.closed = TRUE) {
+      vals <- private$values
+      if (inherits(self$bounds, "CFBounds")) {
+        # Axis has bounds so get the closest coordinate first, allow for extremes
+        idx <- .round(stats::approx(vals, 1L:length(vals), x, method = "linear", rule = 2)$y)
+        # Test that `x` falls within the bounds of the coordinates
+        bnds <- self$bounds$bounds
+        valid <- (bnds[1L, idx] <= x) & (x <= bnds[2L, idx])
+        idx[!valid] <- NA
+      } else {
+        # No bounds so get the closest value
+        idx <- stats::approx(vals, 1L:length(vals), x, method = method)$y
+      }
+
+      if (method == "constant")
+        as.integer(idx)
+      else
+        idx
+    },
+
+    #' @description Tests if the axis passed to this method is identical to
+    #'   `self`.
+    #' @param axis The `CFAxisNumeric` or sub-class instance to test.
+    #' @return `TRUE` if the two axes are identical, `FALSE` if not.
+    identical = function(axis) {
+      super$identical(axis) &&
+      all(.near(private$values, axis$values))
+    },
+
+    #' @description Append a vector of values at the end of the current values
+    #'   of the axis.
+    #' @param from An instance of `CFAxisNumeric` or any of its descendants
+    #'   whose values to append to the values of `self`.
+    #' @return A new `CFAxisNumeric` or descendant instance with values from
+    #'   self and the `from` axis appended.
+    append = function(from) {
+      if (super$can_append(from) && .c_is_monotonic(private$values, from$values)) {
+        bnds <- if (is.null(self$bounds) || is.null(from$bounds)) NULL
+                else cbind(self$bounds, from$bounds)
+        axis <- makeAxis(self$name, makeGroup(), axis$orientation, c(private$values, from$values), NULL)
+        axis$attributes <- self$attributes
+        axis
+      } else
+        stop("Axis values cannot be appended.", call. = FALSE)
     },
 
     #' @description Return an axis spanning a smaller coordinate range. This
@@ -112,43 +159,29 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
     #'   `rng` argument.
     #'
     #' @param group The group to create the new axis in.
-    #' @param rng The range of values from this axis to include in the returned
-    #'   axis.
+    #' @param rng The range of indices whose values from this axis to include in
+    #'   the returned axis.
     #'
     #' @return A `CFAxisNumeric` instance covering the indicated range of
-    #'   indices. If the `rng` argument includes only a single value, an
-    #'   [CFAxisScalar] instance is returned with the value from this axis. If
-    #'   the value of the argument is `NULL`, return the entire axis (possibly
-    #'   as a scalar axis).
+    #'   indices. If the value of the argument is `NULL`, return the entire
+    #'   axis.
     subset = function(group, rng = NULL) {
       var <- NCVariable$new(-1L, self$name, group, "NC_DOUBLE", 1L, NULL)
 
-      .make_scalar <- function(idx) {
-        scl <- CFAxisScalar$new(group, var, self$orientation, idx)
-        bnds <- self$bounds
-        if (inherits(bnds, "CFBounds")) scl$bounds <- bnds$sub_bounds(group, idx)
-        private$subset_coordinates(scl, idx)
-        scl
-      }
-
       if (is.null(rng)) {
-        if (length(private$values) > 1L) {
-          ax <- self$clone()
-          ax$group <- group
-          ax
-        } else
-          .make_scalar(1L)
+        ax <- self$clone()
+        ax$group <- group
+        ax
       } else {
-        if (rng[1L] == rng[2L])
-          .make_scalar(private$values[rng[1L]])
-        else {
-          dim <- NCDimension$new(-1L, self$name, rng[2L] - rng[1L] + 1L, FALSE)
-          ax <- CFAxisNumeric$new(group, var, dim, self$orientation, private$values[rng[1L]:rng[2L]])
-          bnds <- self$bounds
-          if (inherits(bnds, "CFBounds")) ax$bounds <- bnds$sub_bounds(group, rng)
-          private$subset_coordinates(ax, idx)
-          ax
-        }
+        rng <- range(rng)
+        dim <- NCDimension$new(-1L, self$name, rng[2L] - rng[1L] + 1L, FALSE)
+        ax <- CFAxisNumeric$new(var, dim, self$orientation, private$values[rng[1L]:rng[2L]])
+        bnds <- self$bounds
+        if (inherits(bnds, "CFBounds")) ax$bounds <- bnds$sub_bounds(group, rng)
+        private$subset_coordinates(ax, idx)
+        ax$attributes <- self$attributes
+        ax$attribute("actual_range", self$NCvar$vtype, range(ax$values))
+        ax
       }
     }
 

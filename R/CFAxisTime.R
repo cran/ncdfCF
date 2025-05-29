@@ -38,12 +38,14 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
   ),
   public = list(
     #' @description Create a new instance of this class.
-    #' @param grp The group that contains the netCDF variable.
+    #'
+    #'   Creating a new time axis is more easily done with the [makeTimeAxis()]
+    #'   function.
     #' @param nc_var The netCDF variable that describes this instance.
     #' @param nc_dim The netCDF dimension that describes the dimensionality.
     #' @param values The `CFTime` instance that manages this axis.
-    initialize = function(grp, nc_var, nc_dim, values) {
-      super$initialize(grp, nc_var, nc_dim, "T")
+    initialize = function(nc_var, nc_dim, values) {
+      super$initialize(nc_var, nc_dim, "T")
       private$tm <- values
       self$set_attribute("units", "NC_CHAR", values$cal$definition)
       self$set_attribute("calendar", "NC_CHAR", values$cal$name)
@@ -60,10 +62,17 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       super$print()
 
       time <- private$tm
-      crds <- self$coordinates
+      if (private$active_coords == 1L) {
+        crds <- private$tm$as_timestamp()
+        units <- time$unit
+      } else {
+        crds <- private$aux[[private$active_coords - 1L]]$coordinates
+        units <- private$aux[[private$active_coords - 1L]]$attribute("units")
+      }
       len <- length(crds)
       rng <- if (len == 1L) crds[1L]
-             else paste0(crds[1L], " ... ", crds[len], " (", time$unit, ")")
+             else paste(crds[1L], "...", crds[len])
+      if (!is.na(units)) rng <- paste0(rng, " (", units, ")")
       bndrng <- if (!is.null(time$get_bounds()))
         paste0(time$range(format = "", bounds = TRUE), collapse = " ... ")
       else "(not set)"
@@ -91,6 +100,39 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       private$tm
     },
 
+    #' @description Tests if the axis passed to this method is identical to
+    #'   `self`.
+    #' @param axis The `CFAxisTime` instance to test.
+    #' @return `TRUE` if the two axes are identical, `FALSE` if not.
+    identical = function(axis) {
+      super$identical(axis) &&
+      private$tm$cal$is_equivalent(axis$time()$cal) &&
+      all(.near(private$tm$offsets, axis$time()$offsets))
+    },
+
+    #' @description Append a vector of time values at the end of the current
+    #'   values of the axis.
+    #' @param from An instance of `CFAxisTime` whose values to append to the
+    #'   values of `self`.
+    #' @return A new `CFAxisTime` instance with values from self and the `from`
+    #'   axis appended.
+    append = function(from) {
+      if (super$can_append(from) && .c_is_monotonic(private$tm$offsets, from$time()$offsets)) {
+        bnds <- if (is.null(private$tm$bounds) || is.null(from$time()$bounds)) NULL
+                else cbind(private$tm$bounds, from$time()$bounds)
+        if (class(private$tm)[1L] == "CFClimatology")
+          time <- CFClimatology$new(private$tm$cal$definition, private$tm$cal$name, c(private$tm$offsets, from$time()$offsets), bnds)
+        else {
+          time <- CFTime$new(private$tm$cal$definition, private$tm$cal$name, c(private$tm$offsets, from$time()$offsets))
+          time$bounds <- bnds
+        }
+        axis <- makeTimeAxis(self$name, makeGroup(), time)
+        axis$attributes <- self$attributes
+        axis
+      } else
+        stop("Axis values cannot be appended.", call. = FALSE)
+    },
+
     #' @description Retrieve the indices of supplied values on the time axis.
     #' @param x A vector of timestamps whose indices into the time axis to
     #' extract.
@@ -99,15 +141,11 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     #' @param rightmost.closed Whether or not to include the upper limit.
     #' Default is `FALSE`.
     #' @return An integer vector giving the indices in the time axis of valid
-    #' values in `x`, or `integer(0)` if none of the values are valid.
+    #' values in `x`, or `NA` if the value is not valid.
     indexOf = function(x, method = "constant", rightmost.closed = FALSE) {
       time <- private$tm
-      idx <- time$indexOf(x, method)
-      idx <- idx[!is.na(idx) & idx > 0 & idx < .Machine$integer.max]
+      idx <- time$indexOf(x, method, rightmost.closed)
       len <- length(idx)
-      if (!len) return (integer(0))
-      if (!rightmost.closed) # FIXME: Is this correct????
-        idx[len] <- idx[len] - 1
       as.integer(idx)
     },
 
@@ -130,44 +168,28 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     #'   `rng` argument.
     #'
     #' @param group The group to create the new axis in.
-    #' @param rng The range of values from this axis to include in the returned
-    #'   axis.
+    #' @param rng The range of indices whose values from this axis to include in
+    #'   the returned axis.
     #'
     #' @return A `CFAxisTime` instance covering the indicated range of indices.
-    #'   If the `rng` argument includes only a single value, an [CFAxisScalar]
-    #'   instance is returned with its value being the character timestamp of
-    #'   the value in this axis. If the value of the argument is `NULL`, return
-    #'   the entire axis (possibly as a scalar axis).
+    #'   If the value of the argument is `NULL`, return the entire axis.
     subset = function(group, rng = NULL) {
       var <- NCVariable$new(-1L, self$name, group, "NC_DOUBLE", 1L, NULL)
       time <- private$tm
 
-      .make_scalar <- function(idx) {
-        scl <- CFAxisScalar$new(group, var, "T", as_timestamp(time)[idx])
-        bnds <- time$get_bounds()
-        if (!is.null(bnds)) scl$bounds <- bnds[, idx]
-        private$subset_coordinates(scl, idx)
-        scl
-      }
-
       if (is.null(rng)) {
-        if (length(time) > 1L) {
-          ax <- self$clone()
-          ax$group <- group
-          ax
-        } else
-          .make_scalar(1L)
+        ax <- self$clone()
+        ax$group <- group
+        ax
       } else {
         rng <- range(rng)
-        if (rng[1L] == rng[2L])
-          .make_scalar(rng[1L])
-        else {
-          idx <- time$indexOf(seq(from = rng[1L], to = rng[2L], by = 1L))
-          dim <- NCDimension$new(-1L, self$name, length(idx), FALSE)
-          t <- CFAxisTime$new(group, var, dim, attr(idx, "CFTime"))
-          private$subset_coordinates(t, idx)
-          t
-        }
+        idx <- time$indexOf(seq(from = rng[1L], to = rng[2L], by = 1L))
+        tm <- attr(idx, "CFTime")
+        dim <- NCDimension$new(-1L, self$name, length(idx), FALSE)
+        t <- CFAxisTime$new(var, dim, tm)
+        private$subset_coordinates(t, idx)
+        t$set_attribute("actual_range", self$NCvar$vtype, range(tm$offsets))
+        t
       }
     },
 
@@ -184,7 +206,14 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
         self$set_attribute("calendar", "NC_CHAR", "standard")
       super$write(nc)
 
-      .writeTimeBounds(nc, self$name, private$tm)
+      bnds <- time$get_bounds()
+      if (!is.null(bnds)) {
+        try(RNetCDF::dim.def.nc(nc, "nv2", 2L), silent = TRUE) # FIXME: nv2 could already exist with a different length
+        nm <- if (inherits(time, "CFClimatology")) "climatology_bnds" else "time_bnds"
+        RNetCDF::att.put.nc(nc, name, "bounds", "NC_CHAR", nm)
+        RNetCDF::var.def.nc(nc, nm, "NC_DOUBLE", c("nv2", name))
+        RNetCDF::var.put.nc(nc, nm, bnds)
+      }
     }
   ),
   active = list(
@@ -202,22 +231,3 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     }
   )
 )
-
-# ==============================================================================
-
-# Helper function to write time axis bounds. These are maintained by the CFTime
-# or CFClimatology instance referenced by the axis. This is a function so that
-# CFAxisScalar can also access it for scalar time axes.
-# nc - Handle to the netCDF file open for writing
-# name - The name of the axis to write the bounds for
-# time - The CFTime or CFClimatology instance whose bounds to write
-.writeTimeBounds <- function(nc, name, time) {
-  bnds <- time$get_bounds()
-  if (!is.null(bnds)) {
-    try(RNetCDF::dim.def.nc(nc, "nv2", 2L), silent = TRUE) # FIXME: nv2 could already exist with a different length
-    nm <- if (inherits(time, "CFClimatology")) "climatology_bnds" else "time_bnds"
-    RNetCDF::att.put.nc(nc, name, "bounds", "NC_CHAR", nm)
-    RNetCDF::var.def.nc(nc, nm, "NC_DOUBLE", c("nv2", name))
-    RNetCDF::var.put.nc(nc, nm, bnds)
-  }
-}

@@ -1,10 +1,10 @@
 #' Array data extracted from a CF data variable
 #'
-#' @description This class holds the data that is extracted from a [CFVariable],
-#'   using the `data()` or `subset()` method. The instance of this class will
-#'   additionally have the axes and other relevant information such as its
-#'   attributes (as well as those of the axes) and the coordinate reference
-#'   system.
+#' @description This class holds the data that is extracted from a [CFVariable]
+#'   using the `data()`, `subset()` or `profile()` method. The instance of this
+#'   class will additionally have the axes and other relevant information such
+#'   as its attributes (as well as those of the axes) and the coordinate
+#'   reference system.
 #'
 #'   Otherwise, a `CFArray` is detached from the data set where it was derived
 #'   from. It is self-contained in the sense that all its constituent parts
@@ -96,6 +96,17 @@ CFArray <- R6::R6Class("CFArray",
       private$values
     },
 
+    # Extract a chunk of data from the local array
+    read_chunk = function(start, count) {
+      NAs <- which(is.na(count))
+      if (length(NAs)) {
+        lengths <- sapply(self$axes, function(x) x$length)
+        count[NAs] <- lengths[NAs]
+      }
+      cll <- paste0("private$values[", paste(sprintf("%d:%d", start, start + count - 1), collapse = ","), "]")
+      eval(parse(text = cll))
+    },
+
     # Internal apply/tapply over the temporal axis.
     process_data = function(tdim, fac, fun, ...) {
       .process.data(private$values, tdim, fac, fun, ...)
@@ -111,21 +122,21 @@ CFArray <- R6::R6Class("CFArray",
     #'   on the method that produced it.
     #' @param values_type The unpacked netCDF data type for this object.
     #' @param axes A `list` of [CFAxis] descendant instances that describe the
-    #'   axes of the argument `value`.
+    #'   axes of the argument `values`.
     #' @param crs The [CFGridMapping] instance of this data object, or `NULL`
     #'   when no grid mapping is available.
     #' @param attributes A `data.frame` with the attributes associated with the
-    #'   data in argument `value`.
+    #'   data in argument `values`.
     #' @return An instance of this class.
     initialize = function(name, group, values, values_type, axes, crs, attributes) {
       var <- NCVariable$new(-1L, name, group, dt, 0L, NULL)
       var$attributes <- attributes
-      super$initialize(var, group, axes, crs)
+      super$initialize(var, axes, crs)
 
       private$values <- values
       private$values_type <- values_type
       if (!all(is.na(private$values))) {
-        private$actual_range <- round(range(values, na.rm = TRUE), 8)
+        private$actual_range <- round(range(values, na.rm = TRUE), CF$digits)
         self$set_attribute("actual_range", values_type, private$actual_range)
       }
     },
@@ -165,7 +176,10 @@ CFArray <- R6::R6Class("CFArray",
     #' @return The data in the object. This is usually an `array` with the
     #' contents along axes varying.
     raw = function() {
-      dimnames(private$values) <- self$dimnames
+      if (is.null(dim(private$values)))
+        names(private$values) <- self$dimnames
+      else
+        dimnames(private$values) <- self$dimnames
       private$values
     },
 
@@ -178,6 +192,41 @@ CFArray <- R6::R6Class("CFArray",
 
       dimnames(private$values) <- self$dimnames
       private$orient("R")
+    },
+
+    #' @description Append the data from another `CFArray` instance to the
+    #'   current instance, along one of the axes. The operation will only
+    #'   succeed if the axes other than the one to append along have the same
+    #'   coordinates and the coordinates of the axis to append along have to be
+    #'   monotonically increasing or decreasing after appending.
+    #' @param from The `CFArray` instance to append from.
+    #' @param along The name of the axis to append along. This must be a single
+    #'   character string and the named axis has to be present both in `self`
+    #'   and in the `CFArray` instance in argument `from`.
+    #' @return `self`, invisibly, with the arrays from `self` and `from`
+    #'   appended.
+    append = function(from, along) {
+      # Check if the array can be appended to self
+      if (length(along) != 1L || !(along %in% names(self$axes)))
+        stop("Argument `along` must be a single name of an existing axis.", call. = FALSE)
+      if (length(from$axes) != length(self$axes))
+        stop("Array `from` must have the same number of axes as this array.", call. = FALSE)
+      for (ax in seq_along(self$axes)) {
+        if (self$axes[[ax]]$name == along)
+          axno <- ax
+        else
+          if (!self$axes[[ax]]$identical(from$axes[[ax]]))
+            stop(paste("Axis", ax, "is not identical between the two arrays."), call. = FALSE)
+      }
+
+      # Extend the axis `along` with values from `from`
+      self$axes[[axno]] <- self$axes[[axno]]$append(from$axes[[axno]])
+
+      # Merge the arrays
+      private$values <- abind::abind(private$values, from$raw(), along = axno)
+      self$set_attribute("actual_range", private$values_type, round(range(private$values), CF$digits))
+
+      invisible(self)
     },
 
     #' @description Convert the data to a `terra::SpatRaster` (3D) or a
@@ -210,7 +259,7 @@ CFArray <- R6::R6Class("CFArray",
         Ybnds <- c(vals[1L] - halfres, vals[length(vals)] + halfres)
       }
       if (Ybnds[1L] > Ybnds[2L]) Ybnds <- rev(Ybnds)
-      ext <- round(c(Xbnds, Ybnds), 4) # Round off spurious "accuracy"
+      ext <- round(c(Xbnds, Ybnds), CF$digits) # Round off spurious "accuracy"
 
       # CRS
       wkt <- if (is.null(self$crs)) .wkt2_crs_geo(4326L)
@@ -239,20 +288,27 @@ CFArray <- R6::R6Class("CFArray",
     #' @description Retrieve the data in the object in the form of a
     #'   `data.table`. The `data.table` package needs to be installed for this
     #'   method to work.
-    #' @return A `data.table` with all data points in individual rows. All axes,
-    #'   including scalar axes, will become columns. The `name` of this data
-    #'   variable will be used as the column that holds the data values. Two
-    #'   attributes are added: `name` indicates the long name of this data
-    #'   variable, `units` indicates the physical unit of the data values.
-    data.table = function() {
+    #' @param var_as_column Logical to flag if the name of the variable should
+    #'   become a column (`TRUE`) or be used as the name of the column with the
+    #'   data values (`FALSE`, default). Including the name of the variable as a
+    #'   column is useful when multiple `data.table`s are merged into one.
+    #' @return A `data.table` with all data points in individual rows. All axes
+    #'   will become columns. Two attributes are added: `name` indicates the
+    #'   long name of this data variable, `units` indicates the physical unit of
+    #'   the data values.
+    data.table = function(var_as_column = FALSE) {
       if (!requireNamespace("data.table", quietly = TRUE))
-        stop("Please install package 'data.table' before using this functionality")
+        stop("Please install package 'data.table' before using this functionality", call. = FALSE)
       .datatable.aware = TRUE
 
       exp <- expand.grid(lapply(self$axes, function(ax) ax$coordinates),
                          KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
       dt <- data.table::as.data.table(exp)
-      suppressWarnings(dt[ , eval(self$name) := private$values])
+      if (var_as_column) {
+        dt[ , .variable := self$name]
+        dt[ , .value := private$values]
+      } else
+        suppressWarnings(dt[ , eval(self$name) := private$values])
 
       long_name <- self$attribute("long_name")
       if (is.na(long_name)) long_name <- ""
@@ -318,6 +374,7 @@ CFArray <- R6::R6Class("CFArray",
     dimnames = function(value) {
       if (missing(value)) {
         len <- length(dim(private$values))
+        if (len == 0L) len <- 1L # One-dimensional data has no dim(.)
         dn <- lapply(1:len, function(ax) dimnames(self$axes[[ax]]))
         names(dn) <- sapply(1:len, function(ax) self$axes[[ax]]$name)
         dn

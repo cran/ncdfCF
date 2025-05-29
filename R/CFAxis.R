@@ -42,7 +42,6 @@ CFAxis <- R6::R6Class("CFAxis",
   ),
   public = list(
     #' @field NCdim The [NCDimension] that stores the netCDF dimension details.
-    #' This is `NULL` for [CFAxisScalar] instances.
     NCdim = NULL,
 
     #' @field orientation A character "X", "Y", "Z" or "T" to indicate the
@@ -56,17 +55,19 @@ CFAxis <- R6::R6Class("CFAxis",
     #'   variable in a netCDF resource. This method is called upon opening a
     #'   netCDF resource by the `initialize()` method of a descendant class
     #'   suitable for the type of axis.
-    #' @param grp The [NCGroup] that this axis is located in.
+    #'
+    #'   Creating a new axis is more easily done with the [makeAxis()] function.
     #' @param nc_var The [NCVariable] instance upon which this CF axis is based.
     #' @param nc_dim The [NCDimension] instance upon which this CF axis is
     #'   based.
     #' @param orientation The orientation of the axis: "X", "Y", "Z" "T", or ""
     #'   when not known or relevant.
     #' @return A basic `CFAxis` object.
-    initialize = function(grp, nc_var, nc_dim, orientation) {
-      super$initialize(nc_var, grp)
+    initialize = function(nc_var, nc_dim, orientation) {
+      super$initialize(nc_var)
       self$NCdim <- nc_dim
       self$orientation <- orientation
+      self$set_attribute("axis", "NC_CHAR", orientation)
       self$delete_attribute("_FillValue")
 
       nc_var$CF <- self
@@ -90,7 +91,7 @@ CFAxis <- R6::R6Class("CFAxis",
       if (self$NCdim$unlim) cat(" (unlimited)\n") else cat("\n")
       cat("Axis       :", self$orientation, "\n")
       if (length(private$aux))
-        cat("Coordinates:", paste(self$coordinate_names, collapse = ", "), "\n")
+        cat("Label sets :", paste(self$coordinate_names, collapse = ", "), "\n")
     },
 
     #' @description Some details of the axis.
@@ -103,7 +104,7 @@ CFAxis <- R6::R6Class("CFAxis",
       if (is.na(units)) units <- ""
       if (units == "1") units <- ""
 
-      data.frame(id = self$dimid, axis = self$orientation, group = self$group$fullname,
+      data.frame(axis = self$orientation, group = self$group$fullname,
                  name = self$name, long_name = longname, length = self$NCdim$length,
                  unlim = unlim, values = "", unit = units)
     },
@@ -117,7 +118,7 @@ CFAxis <- R6::R6Class("CFAxis",
     },
 
     #' @description Retrieve interesting details of the axis.
-    #' @param with_groups Should group information be included? The save option
+    #' @param with_groups Should group information be included? The safe option
     #' is `TRUE` (default) when the netCDF resource has groups because names may
     #' be duplicated among objects in different groups.
     #' @return A 1-row `data.frame` with details of the axis.
@@ -137,49 +138,66 @@ CFAxis <- R6::R6Class("CFAxis",
     },
 
     #' @description Return the `CFTime` instance that represents time. This
-    #'   method is only useful for `CFAxisTime` instances and `CFAxisScalar`
-    #'   instances having time information. This stub is here to make the call
-    #'   to this method succeed with no result for the other axis descendants.
+    #'   method is only useful for `CFAxisTime` instances having time
+    #'   information. This stub is here to make the call to this method succeed
+    #'   with no result for the other descendant classes.
     #' @return `NULL`
     time = function() {
       NULL
     },
 
+    #' @description Tests if the axis passed to this method is identical to
+    #'   `self`. This only tests for generic properties - class, length and name
+    #'   - with further assessment done in sub-classes.
+    #' @param axis The `CFAxis` instance to test.
+    #' @return `TRUE` if the two axes are identical, `FALSE` if not.
+    identical = function(axis) {
+      all(class(self) == class(axis)) &&
+      self$length == axis$length &&
+      self$name == axis$name
+    },
+
+    #' @description Tests if the axis passed to this method can be appended to
+    #'   `self`. This only tests for generic properties - class, mode of the
+    #'   values and name - with further assessment done in sub-classes.
+    #' @param axis The `CFAxis` descendant instance to test.
+    #' @return `TRUE` if the passed axis can be appended to `self`, `FALSE` if
+    #'   not.
+    can_append = function(axis) {
+      all(class(self) == class(axis)) &&
+      mode(self$values) == mode(axis$values) &&
+      self$name == axis$name
+    },
+
     #' @description Return an axis spanning a smaller coordinate range. This
     #'   method is "virtual" in the sense that it does not do anything other
     #'   than return `NULL`. This stub is here to make the call to this method
-    #'   succeed with no result for the other axis descendants that do not
+    #'   succeed with no result for the  `CFAxis` descendants that do not
     #'   implement this method.
     #' @param group The group to create the new axis in.
-    #' @param rng The range of values from this axis to include in the returned
-    #'   axis. If the value of the argument is `NULL`, return the entire axis
-    #'   (possibly as a scalar axis).
+    #' @param rng The range of indices whose values from this axis to include in
+    #'   the returned axis. If the value of the argument is `NULL`, return the
+    #'   entire axis.
     #' @return `NULL`
     subset = function(group, rng = NULL) {
       NULL
     },
 
     #' @description Find indices in the axis domain. Given a vector of
-    #'   numerical, timestamp or categorical values `x`, find their indices in
-    #'   the values of the axis. With `method = "constant"` this returns the
-    #'   index of the value lower than the supplied values in `x`. With
-    #'   `method = "linear"` the return value includes any fractional part.
+    #'   numerical, timestamp or categorical coordinates `x`, find their indices
+    #'   in the coordinates of the axis.
     #'
-    #'   If bounds are set on the numerical or time axis, the indices are taken
-    #'   from those bounds. Returned indices may fall in between bounds if the
-    #'   latter are not contiguous, with the exception of the extreme values in
-    #'   `x`.
-    #' @param x Vector of numeric, timestamp or categorial values to find axis
-    #'   indices for. The timestamps can be either character, POSIXct or Date
-    #'   vectors. The type of the vector has to correspond to the type of the
-    #'   axis.
+    #'   This is a virtual method. For more detail, see the corresponding method
+    #'   in descendant classes.
+    #' @param x Vector of numeric, timestamp or categorial coordinates to find
+    #'   axis indices for. The timestamps can be either character, POSIXct or
+    #'   Date vectors. The type of the vector has to correspond to the type of
+    #'   the axis values.
     #' @param method Single character value of "constant" or "linear".
-    #' @return Numeric vector of the same length as `x`. If `method = "constant"`,
-    #'   return the index value for each match. If `method = "linear"`, return
-    #'   the index value with any fractional value. Values of `x` outside of the
-    #'   range of the values in the axis are returned as `0` and
-    #'   `.Machine$integer.max`, respectively.
-    indexOf = function(x, method = "constant") {
+    #' @param rightmost.closed Whether or not to include the upper limit.
+    #' Default is `TRUE`.
+    #' @return Numeric vector of the same length as `x`.
+    indexOf = function(x, method = "constant", rightmost.closed = TRUE) {
       stop("`indexOf()` must be implemented by descendant CFAxis class.")
     },
 
@@ -192,7 +210,7 @@ CFAxis <- R6::R6Class("CFAxis",
     write = function(nc = NULL) {
       h <- if (inherits(nc, "NetCDF")) nc else self$group$handle
 
-      if (inherits(self, "CFAxisScalar")) {
+      if (self$length == 1L) {
         RNetCDF::var.def.nc(h, self$name, self$NCvar$vtype, NA)
       } else {
         self$NCdim$write(h)
@@ -259,14 +277,15 @@ CFAxis <- R6::R6Class("CFAxis",
         if (private$active_coords == 1L) NULL
         else private$aux[[private$active_coords - 1L]]
       } else {
-        if ((inherits(value, "CFLabel") || inherits(value, "CFAxis")) && value$length == self$length) {
+        if ((inherits(value, "CFLabel") || inherits(value, "CFAxis")) &&
+            value$length == self$length && !(value$name %in% names(private$aux))) {
           private$aux <- append(private$aux, value)
           names(private$aux) <- sapply(private$aux, function(l) l$name)
         }
       }
     },
 
-    #' @field coordinate_names Retrieve the names of the coordinates
+    #' @field coordinate_names Retrieve the names of the coordinate sets
     #'   defined for the axis, as a character vector. The first element in the
     #'   vector is the name of the axis and it refers to the values of the
     #'   coordinates as stored in the netCDF file. Following elements refer to

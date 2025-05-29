@@ -15,9 +15,6 @@ CFObject <- R6::R6Class("CFObject",
     #' @field NCvar The [NCVariable] instance that this CF object represents.
     NCvar = NULL,
 
-    #' @field group The [NCGroup] that this object is located in.
-    group = NULL,
-
     #' @description Create a new CF object instance from a variable in a netCDF
     #'   resource. This method is called upon opening a netCDF resource. It is
     #'   rarely, if ever, useful to call this constructor directly from the
@@ -26,11 +23,9 @@ CFObject <- R6::R6Class("CFObject",
     #'
     #' @param nc_var The [NCVariable] instance upon which this CF object is
     #'   based.
-    #' @param group The [NCGroup] that this object is located in.
     #' @return A `CFobject` instance.
-    initialize = function(nc_var, group) {
+    initialize = function(nc_var) {
       self$NCvar <- nc_var
-      self$group <- group
     },
 
     #' @description Retrieve attributes of any CF object.
@@ -51,10 +46,7 @@ CFObject <- R6::R6Class("CFObject",
     #' @param width The maximum width of each column in the `data.frame` when
     #' printed to the console.
     print_attributes = function(width = 50L) {
-      if (nrow(self$NCvar$attributes)) {
-        cat("\nAttributes:\n")
-        print(.slim.data.frame(self$NCvar$attributes, width), right = FALSE, row.names = FALSE)
-      }
+      self$NCvar$print_attributes(width)
     },
 
     #' @description Add an attribute. If an attribute `name` already exists, it
@@ -114,6 +106,15 @@ CFObject <- R6::R6Class("CFObject",
     write_attributes = function(nc, nm) {
       self$NCvar$write_attributes(nc, nm)
       invisible(self)
+    },
+
+    #' @description Add names of axes to the "coordinates" attribute, avoiding
+    #' duplicates and retaining previous values.
+    #' @param crds Vector of axis names to add to the attribute.
+    #' @return Self, invisibly.
+    add_coordinates = function(crds) {
+      self$NCvar$add_coordinates(crds)
+      invisible(self)
     }
   ),
 
@@ -145,6 +146,14 @@ CFObject <- R6::R6Class("CFObject",
       }
     },
 
+    #' @field group Retrieve the [NCGroup] that this object is located in.
+    group = function(value) {
+      if (missing(value))
+        self$NCvar$group
+      else
+        self$NCvar$group <- value
+    },
+
     #' @field attributes Set or retrieve a `data.frame` with the attributes of
     #'   the CF object.
     attributes = function(value) {
@@ -173,7 +182,6 @@ CFObject <- R6::R6Class("CFObject",
 #' * `CFAxisTime`: The values of the elements along the axis as a
 #' character vector containing timestamps in ISO8601 format. This could be dates
 #' or date-times if time information is available in the axis.
-#' * `CFAxisScalar`: The value of the scalar.
 #' * `CFAxisCharacter`: The values of the elements along the axis as
 #' a character vector.
 #' * `CFAxisDiscrete`: The index values of the axis, from 1 to the

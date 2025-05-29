@@ -38,14 +38,14 @@ str(ts)
 
 ## ----subset-------------------------------------------------------------------
 # Extract a specific region, full time dimension
-(ts <- t2m$subset(list(X = 29:30, Y = -1:-2)))
+(ts <- t2m$subset(X = 29:30, Y = -1:-2))
 
 # Extract specific time slices for a specific region
 # Note that the axes are specified out of order and using alternative
 # specifications: only the extreme values are used.
-(ts <- t2m$subset(list(T = c("2016-01-01 09:00", "2016-01-01 15:00"),
-                       X = c(29.6, 28.8),
-                       Y = seq(-2, -1, by = 0.05))))
+(ts <- t2m$subset(T = c("2016-01-01 09:00", "2016-01-01 15:00"),
+                  X = c(29.6, 28.8),
+                  Y = seq(-2, -1, by = 0.05)))
 
 ## ----cfarray------------------------------------------------------------------
 # Open a file and read the data from a variable into a CFArray instance

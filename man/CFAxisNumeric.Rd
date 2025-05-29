@@ -31,6 +31,8 @@ of auxiliary coordinates, if they have been set.}
 \item \href{#method-CFAxisNumeric-brief}{\code{CFAxisNumeric$brief()}}
 \item \href{#method-CFAxisNumeric-range}{\code{CFAxisNumeric$range()}}
 \item \href{#method-CFAxisNumeric-indexOf}{\code{CFAxisNumeric$indexOf()}}
+\item \href{#method-CFAxisNumeric-identical}{\code{CFAxisNumeric$identical()}}
+\item \href{#method-CFAxisNumeric-append}{\code{CFAxisNumeric$append()}}
 \item \href{#method-CFAxisNumeric-subset}{\code{CFAxisNumeric$subset()}}
 \item \href{#method-CFAxisNumeric-clone}{\code{CFAxisNumeric$clone()}}
 }
@@ -38,12 +40,14 @@ of auxiliary coordinates, if they have been set.}
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
@@ -56,15 +60,15 @@ of auxiliary coordinates, if they have been set.}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-new}{}}}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
+
+Creating a new axis is more easily done with the \code{\link[=makeAxis]{makeAxis()}} function.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$new(grp, nc_var, nc_dim, orientation, values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$new(nc_var, nc_dim, orientation, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The group that contains the netCDF variable.}
-
 \item{\code{nc_var}}{The netCDF variable that describes this instance.}
 
 \item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
@@ -129,27 +133,75 @@ values in the axis, respectively.
 \if{html}{\out{<a id="method-CFAxisNumeric-indexOf"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisNumeric-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
-Retrieve the indices of supplied values on the axis. If the
-axis has bounds then the supplied values must fall within the bounds to
-be considered valid.
+Retrieve the indices of supplied coordinates on the axis. If
+the axis has bounds then the supplied coordinates must fall within the
+bounds to be considered valid.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$indexOf(x, method = "constant")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$indexOf(x, method = "constant", rightmost.closed = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{A numeric vector of values whose indices into the axis to
+\item{\code{x}}{A numeric vector of coordinates whose indices into the axis to
 extract.}
 
 \item{\code{method}}{Extract index values without ("constant", the default) or
 with ("linear") fractional parts.}
+
+\item{\code{rightmost.closed}}{Whether or not to include the upper limit. This
+parameter is ignored for this class, effectively it always is \code{TRUE}.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-An integer vector giving the indices in \code{x} of valid values
-provided, or \code{integer(0)} if none of the \code{x} values are valid.
+A vector giving the indices in \code{x} of valid coordinates provided.
+Values of \code{x} outside of the range of the coordinates in the axis are
+returned as \code{NA}.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisNumeric-identical"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisNumeric-identical}{}}}
+\subsection{Method \code{identical()}}{
+Tests if the axis passed to this method is identical to
+\code{self}.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$identical(axis)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{axis}}{The \code{CFAxisNumeric} or sub-class instance to test.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{TRUE} if the two axes are identical, \code{FALSE} if not.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisNumeric-append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisNumeric-append}{}}}
+\subsection{Method \code{append()}}{
+Append a vector of values at the end of the current values
+of the axis.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisNumeric$append(from)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{from}}{An instance of \code{CFAxisNumeric} or any of its descendants
+whose values to append to the values of \code{self}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{CFAxisNumeric} or descendant instance with values from
+self and the \code{from} axis appended.
 }
 }
 \if{html}{\out{<hr>}}
@@ -168,17 +220,15 @@ method returns an axis which spans the range of indices given by the
 \describe{
 \item{\code{group}}{The group to create the new axis in.}
 
-\item{\code{rng}}{The range of values from this axis to include in the returned
-axis.}
+\item{\code{rng}}{The range of indices whose values from this axis to include in
+the returned axis.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 A \code{CFAxisNumeric} instance covering the indicated range of
-indices. If the \code{rng} argument includes only a single value, an
-\link{CFAxisScalar} instance is returned with the value from this axis. If
-the value of the argument is \code{NULL}, return the entire axis (possibly
-as a scalar axis).
+indices. If the value of the argument is \code{NULL}, return the entire
+axis.
 }
 }
 \if{html}{\out{<hr>}}

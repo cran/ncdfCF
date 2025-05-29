@@ -20,8 +20,7 @@ processing is selectable through methods and fields in this class.
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{NCdim}}{The \link{NCDimension} that stores the netCDF dimension details.
-This is \code{NULL} for \link{CFAxisScalar} instances.}
+\item{\code{NCdim}}{The \link{NCDimension} that stores the netCDF dimension details.}
 
 \item{\code{orientation}}{A character "X", "Y", "Z" or "T" to indicate the
 orientation of the axis, or an empty string if not known or different.}
@@ -51,7 +50,7 @@ descendant, which is added to the end of the list of coordinate sets.
 On retrieval, the active \code{CFLabel} or \code{CFAxis} instance or \code{NULL} when
 the active coordinate set is the primary axis coordinates.}
 
-\item{\code{coordinate_names}}{Retrieve the names of the coordinates
+\item{\code{coordinate_names}}{Retrieve the names of the coordinate sets
 defined for the axis, as a character vector. The first element in the
 vector is the name of the axis and it refers to the values of the
 coordinates as stored in the netCDF file. Following elements refer to
@@ -75,6 +74,8 @@ unlimited dimension.}
 \item \href{#method-CFAxis-shard}{\code{CFAxis$shard()}}
 \item \href{#method-CFAxis-peek}{\code{CFAxis$peek()}}
 \item \href{#method-CFAxis-time}{\code{CFAxis$time()}}
+\item \href{#method-CFAxis-identical}{\code{CFAxis$identical()}}
+\item \href{#method-CFAxis-can_append}{\code{CFAxis$can_append()}}
 \item \href{#method-CFAxis-subset}{\code{CFAxis$subset()}}
 \item \href{#method-CFAxis-indexOf}{\code{CFAxis$indexOf()}}
 \item \href{#method-CFAxis-write}{\code{CFAxis$write()}}
@@ -84,6 +85,7 @@ unlimited dimension.}
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
@@ -101,15 +103,15 @@ Create a new CF axis instance from a dimension and a
 variable in a netCDF resource. This method is called upon opening a
 netCDF resource by the \code{initialize()} method of a descendant class
 suitable for the type of axis.
+
+Creating a new axis is more easily done with the \code{\link[=makeAxis]{makeAxis()}} function.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$new(grp, nc_var, nc_dim, orientation)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$new(nc_var, nc_dim, orientation)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The \link{NCGroup} that this axis is located in.}
-
 \item{\code{nc_var}}{The \link{NCVariable} instance upon which this CF axis is based.}
 
 \item{\code{nc_dim}}{The \link{NCDimension} instance upon which this CF axis is
@@ -186,7 +188,7 @@ Retrieve interesting details of the axis.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{with_groups}}{Should group information be included? The save option
+\item{\code{with_groups}}{Should group information be included? The safe option
 is \code{TRUE} (default) when the netCDF resource has groups because names may
 be duplicated among objects in different groups.}
 }
@@ -201,9 +203,9 @@ A 1-row \code{data.frame} with details of the axis.
 \if{latex}{\out{\hypertarget{method-CFAxis-time}{}}}
 \subsection{Method \code{time()}}{
 Return the \code{CFTime} instance that represents time. This
-method is only useful for \code{CFAxisTime} instances and \code{CFAxisScalar}
-instances having time information. This stub is here to make the call
-to this method succeed with no result for the other axis descendants.
+method is only useful for \code{CFAxisTime} instances having time
+information. This stub is here to make the call to this method succeed
+with no result for the other descendant classes.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$time()}\if{html}{\out{</div>}}
 }
@@ -213,13 +215,60 @@ to this method succeed with no result for the other axis descendants.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-identical"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-identical}{}}}
+\subsection{Method \code{identical()}}{
+Tests if the axis passed to this method is identical to
+\code{self}. This only tests for generic properties - class, length and name
+\itemize{
+\item with further assessment done in sub-classes.
+}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$identical(axis)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{axis}}{The \code{CFAxis} instance to test.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{TRUE} if the two axes are identical, \code{FALSE} if not.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-can_append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-can_append}{}}}
+\subsection{Method \code{can_append()}}{
+Tests if the axis passed to this method can be appended to
+\code{self}. This only tests for generic properties - class, mode of the
+values and name - with further assessment done in sub-classes.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$can_append(axis)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{axis}}{The \code{CFAxis} descendant instance to test.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{TRUE} if the passed axis can be appended to \code{self}, \code{FALSE} if
+not.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxis-subset"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxis-subset}{}}}
 \subsection{Method \code{subset()}}{
 Return an axis spanning a smaller coordinate range. This
 method is "virtual" in the sense that it does not do anything other
 than return \code{NULL}. This stub is here to make the call to this method
-succeed with no result for the other axis descendants that do not
+succeed with no result for the  \code{CFAxis} descendants that do not
 implement this method.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$subset(group, rng = NULL)}\if{html}{\out{</div>}}
@@ -230,9 +279,9 @@ implement this method.
 \describe{
 \item{\code{group}}{The group to create the new axis in.}
 
-\item{\code{rng}}{The range of values from this axis to include in the returned
-axis. If the value of the argument is \code{NULL}, return the entire axis
-(possibly as a scalar axis).}
+\item{\code{rng}}{The range of indices whose values from this axis to include in
+the returned axis. If the value of the argument is \code{NULL}, return the
+entire axis.}
 }
 \if{html}{\out{</div>}}
 }
@@ -245,37 +294,32 @@ axis. If the value of the argument is \code{NULL}, return the entire axis
 \if{latex}{\out{\hypertarget{method-CFAxis-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
 Find indices in the axis domain. Given a vector of
-numerical, timestamp or categorical values \code{x}, find their indices in
-the values of the axis. With \code{method = "constant"} this returns the
-index of the value lower than the supplied values in \code{x}. With
-\code{method = "linear"} the return value includes any fractional part.
+numerical, timestamp or categorical coordinates \code{x}, find their indices
+in the coordinates of the axis.
 
-If bounds are set on the numerical or time axis, the indices are taken
-from those bounds. Returned indices may fall in between bounds if the
-latter are not contiguous, with the exception of the extreme values in
-\code{x}.
+This is a virtual method. For more detail, see the corresponding method
+in descendant classes.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$indexOf(x, method = "constant")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$indexOf(x, method = "constant", rightmost.closed = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Vector of numeric, timestamp or categorial values to find axis
-indices for. The timestamps can be either character, POSIXct or Date
-vectors. The type of the vector has to correspond to the type of the
-axis.}
+\item{\code{x}}{Vector of numeric, timestamp or categorial coordinates to find
+axis indices for. The timestamps can be either character, POSIXct or
+Date vectors. The type of the vector has to correspond to the type of
+the axis values.}
 
 \item{\code{method}}{Single character value of "constant" or "linear".}
+
+\item{\code{rightmost.closed}}{Whether or not to include the upper limit.
+Default is \code{TRUE}.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-Numeric vector of the same length as \code{x}. If \code{method = "constant"},
-return the index value for each match. If \code{method = "linear"}, return
-the index value with any fractional value. Values of \code{x} outside of the
-range of the values in the axis are returned as \code{0} and
-\code{.Machine$integer.max}, respectively.
+Numeric vector of the same length as \code{x}.
 }
 }
 \if{html}{\out{<hr>}}

@@ -2,6 +2,7 @@ Every release
  - Update NEWS, README, vignettes, package description
  - Update links
  - Any changes to CFtime? If so, release CFtime first
+ - Update answers provided on SO
 
 Every push to GitHub
  - Check the FIXMEs
@@ -9,14 +10,21 @@ Every push to GitHub
  - Run check()!
 
 Priority
+ - Do something intelligent with AOI
+ - Move most things to private, leave only user-facing methods and fields public
+ - Website
+ - Github organization
+ - ACDD
+ - Drop bounds ond auxgrid values and reload when needed
+ - Make a helper class to deal with axis coordinates. Compress when regular.
  - Boundary "axes" delete
  - Labels are not necessarily associated with an axis. E.g. labels used in
  `cell_methods` where clause. Where to store these?
  - CFCellMethods: parse the attribute, check the values
  - Testing
- - CFAxisVertical calculate grids -> metR after release
+ - CFAxisVertical calculate grids
+ - Standard name table to match with `standard_name` attribute and its `units`.
  - Write NetCDF files for CFDataset and from scratch
- - Do the CF* classes need access to the group? Or go through the NCVariable?
 
 Future
  - Basic math on CFArray: Math and Ops group functions like + - * / ^
@@ -26,7 +34,7 @@ Future
  - CFArray merge multiple instances.
  - Support more manipulation on attributes: merge
  - crossing the dateline: subset() and AOI -> https://github.com/r-spatial/stars/issues/700
- - Collect non-standrad evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
+ - Collect non-standard evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
       * dimension without NC variable, axis designation from name, CRS without grid_mapping when not lat-long
  - Set CRS, axis designations, units, etc in CFVariable and/or CFData, flag `isDirty` field in CFObject
  - GridMapping with methods to query CRS elements
@@ -36,7 +44,6 @@ Future
  - Select slice of data with `[`, tidyverse style
  - THREDDS catalog
  - DSG
- - Standard name table to match with `standard_name` attribute and its `units`.
 
 Notes:
  - CF objects should never read (or write) data themselves. The underlying NC
@@ -52,6 +59,7 @@ Ocean data ROMS: http://dap.saeon.ac.za/thredds/dodsC/SAEON.EGAGASINI/2019.Penve
 https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/uv3z  #?depth[0:1:39],lat[0:1:4250],lon[0:1:4499],time[0:1:16568],tau[0:1:16568],water_u[0:1:0][0:1:0][0:1:0][0:1:0],water_v[0:1:0][0:1:0][0:1:0][0:1:0]
 "https://thredds.met.no/thredds/dodsC/metpparchivev3/2020/01/01/met_analysis_1_0km_nordic_20200101T00Z.nc"
 (http://thredds.northwestknowledge.net:8080/thredds/catalog/MET/climatologies/monthlyClimatologies/catalog.html)
+Multiple time axes, flags: https://www.ncei.noaa.gov/thredds/dodsC/ncFC/cdr/ndvi-fc/AVHRR_and_VIIRS_NDVI:_aggregation_best.ncd
 
 STANDARD NAMES
 https://cfconventions.org/Data/cf-standard-names/current/src/cf-standard-name-table.xml

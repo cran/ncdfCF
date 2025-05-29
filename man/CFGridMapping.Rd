@@ -45,6 +45,7 @@ https://docs.ogc.org/is/18-010r11/18-010r11.pdf
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
@@ -60,14 +61,12 @@ https://docs.ogc.org/is/18-010r11/18-010r11.pdf
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFGridMapping$new(grp, nc_var, name)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFGridMapping$new(nc_var, name)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The group that contains the netCDF variable.}
-
 \item{\code{nc_var}}{The netCDF variable that describes this instance.}
 
 \item{\code{name}}{The formal grid mapping name from the attribute.}

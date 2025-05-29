@@ -27,7 +27,7 @@ CFBounds <- R6::R6Class("CFBounds",
     #' @param nc_dim The NC dimension that defines the vertices of the bounds.
     #' @param values A matrix with the bounds values.
     initialize = function(nc_var, nc_dim, values) {
-      super$initialize(nc_var, nc_var$group)
+      super$initialize(nc_var)
       self$NCdim <- nc_dim
       private$values <- values
       private$dims <- as.integer(dim(values))
@@ -111,8 +111,8 @@ CFBounds <- R6::R6Class("CFBounds",
         "Bounds object"
     },
 
-    #' @field bounds (read-only) Retrieve the boundary values.
-    bounds = function(value) {
+    #' @field coordinates (read-only) Retrieve the boundary values.
+    coordinates = function(value) {
       if (missing(value))
         private$values
     }

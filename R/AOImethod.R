@@ -4,11 +4,11 @@
 #'   consists of an extent and a resolution of longitude and latitude, all in
 #'   decimal degrees.
 #'
-#'   The AOI is used to define the subset of data to be extracted from a
+#'   The AOI is used to define the subset of data to be extracted from a data
 #'   variable that has an auxiliary longitude-latitude grid (see the
-#'   [CFAuxiliaryLongLat] class) at a specified resolution. The variable thus
-#'   has a primary coordinate system where the horizontal components are not a
-#'   geographic system of longitude and latitude coordinates.
+#'   [CFAuxiliaryLongLat] class) at a specified resolution. The data variable
+#'   thus has a primary coordinate system where the horizontal components are
+#'   not a geographic system of longitude and latitude coordinates.
 #'
 #' @details Following the CF Metadata Conventions, axis coordinates represent
 #'   the center of grid cells. So when specifying `aoi(20, 30, -10, 10, 1, 2)`,
@@ -32,19 +32,19 @@
 #'
 #'   ## Caching
 #'
-#'   In data collections that are composed of multiple variables in a single
-#'   netCDF resource, a single auxiliary longitude-latitude grid may be
-#'   referenced by multiple variables, such as in [ROMS](https://www.myroms.org)
-#'   data which may have dozens of variables using a shared grid. When
-#'   subsetting with an AOI, the instance of this class is cached to improve
-#'   performance. The successive calls to `CFVariable$subset()` should use the
-#'   same object returned from a single call to this function for this caching
-#'   to work properly.
+#'   In data collections that are composed of multiple data variables in a
+#'   single netCDF resource, a single auxiliary longitude-latitude grid may be
+#'   referenced by multiple data variables, such as in
+#'   [ROMS](https://www.myroms.org) data which may have dozens of data variables
+#'   using a shared grid. When subsetting with an AOI, the instance of this
+#'   class is cached to improve performance. The successive calls to
+#'   `CFVariable$subset()` should use the same object returned from a single
+#'   call to this function for this caching to work properly.
 #'
 #' @param lonMin,lonMax,latMin,latMax The minimum and maximum values of the
 #'   longitude and latitude of the AOI, in decimal degrees. The longitude values
-#'   must agree with the range of the longitude in the variable to which this
-#'   AOI will be applied, e.g. `[-180,180]` or `[0,360]`.
+#'   must agree with the range of the longitude in the data variable to which
+#'   this AOI will be applied, e.g. `[-180,180]` or `[0,360]`.
 #' @param resX,resY The separation between adjacent grid cell, in the longitude
 #'   and latitude directions respectively, in decimal degrees. The permitted
 #'   values lie within the range `[0.01 ... 10]`. If `resY` is missing it will
@@ -100,11 +100,17 @@ dim.AOI <- function(x) {
 }
 
 .aoi_check_longitude <- function(min, max) {
+  if (is.null(min) && is.null(max)) return()
+  if (is.null(min) && (max > -180 && max <= 360)) return()
+  if (is.null(max) && (min >= -180 && min < 360)) return()
   if (min < -180 || (min < 0 && max > 180) || max > 360 || min >= max)
     stop("Longitude range is not valid", call. = FALSE)
 }
 
 .aoi_check_latitude <- function(min, max) {
+  if (is.null(min) && is.null(max)) return()
+  if (is.null(min) && (max > -90 && max <= 90)) return()
+  if (is.null(max) && (min >= -90 && min < 90)) return()
   if (min < -90 || max > 90 || min >= max)
     stop("Latitude range is not valid", call. = FALSE)
 }
