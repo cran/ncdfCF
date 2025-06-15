@@ -32,12 +32,15 @@ CFVariable <- R6::R6Class("CFVariable",
         if (!length(idx)) return(NULL)
         idx <- range(idx)
       } else if (inherits(axis, "CFAxisCharacter")) {
-        idx <- range(match(rng, axis$values))
+        idx <- .range_match(rng, axis$values)
       } else {
         if (length(rng) == 1L) closed <- TRUE
         rng <- range(rng)
         vals <- axis$coordinates
-        idx <- if (closed)
+        idx <- if (is.character(rng)) {
+          closed <- TRUE
+          .range_match(rng, vals)
+        } else if (closed)
           which(vals >= rng[1L] & vals <= rng[2L], arr.ind = TRUE)
         else
           which(vals >= rng[1L] & vals < rng[2L], arr.ind = TRUE)
@@ -46,7 +49,7 @@ CFVariable <- R6::R6Class("CFVariable",
         if (!closed && isTRUE(all.equal(vals[idx[2L]], rng[2L])))
           idx[2L] <- idx[2L] - 1L
       }
-      as.integer(idx)
+      if (is.null(idx)) NULL else as.integer(idx)
     },
 
     # Do the auxiliary grid interpolation. Argument "subset" is passed from the
@@ -67,7 +70,7 @@ CFVariable <- R6::R6Class("CFVariable",
 
       # The below appears counter-intuitive (XY relationship to indices) but it
       # works for long-lat grids that use the recommended X-Y-Z-T axis ordering.
-      # Report any problems to https://github.com/pvanlaake/ncdfCF/issues
+      # Report any problems to https://github.com/R-CF/ncdfCF/issues
       dim_ll <- private$llgrid$dim
       xyidx <- arrayInd(index, dim_ll)          # convert indices to row,column
       rx <- range(xyidx[, 2L], na.rm = TRUE)    # full range of columns
@@ -360,9 +363,13 @@ CFVariable <- R6::R6Class("CFVariable",
     #'   be extracted. The longitude and latitude coordinates must be included;
     #'   the X and Y resolution will be calculated if not given. When provided,
     #'   this argument will take precedence over the corresponding axis
-    #'   information for the X and Y axes in the `subset` argument.
+    #'   information for the X and Y axes in the `subset` argument. You must
+    #'   use the argument name when specifying this, like `.aoi = my_aoi`, to
+    #'   avoid the argument being treated as an axis name.
     #' @param rightmost.closed Single logical value to indicate if the upper
-    #'   boundary of range in each axis should be included.
+    #'   boundary of range in each axis should be included. You must use the
+    #'   argument name when specifying this, like `rightmost.closed = TRUE`, to
+    #'   avoid the argument being treated as an axis name.
     #' @return A [CFArray] instance, having an array with its axes and
     #'   attributes of the variable, or `NULL` if one or more of the selectors
     #'   in the `...` argument fall entirely outside of the range of the axis.
@@ -404,11 +411,11 @@ CFVariable <- R6::R6Class("CFVariable",
         if (!is.null(aux) && orient == "X") {
           start[ax] <- aux$X[1L]
           count[ax] <- aux$X[2L]
-          out_axis <- makeLongitudeAxis(private$llgrid$varLong$name, out_group, aux$aoi$dimnames[[2L]], aux$aoi$bounds(out_group)$lon$bounds)
+          out_axis <- makeLongitudeAxis(private$llgrid$varLong$name, out_group, aux$aoi$dimnames[[2L]], aux$aoi$bounds(out_group)$lon$coordinates)
         } else if (!is.null(aux) && orient == "Y") {
           start[ax] <- aux$Y[1L]
           count[ax] <- aux$Y[2L]
-          out_axis <- makeLatitudeAxis(private$llgrid$varLat$name, out_group, aux$aoi$dimnames[[1L]], aux$aoi$bounds(out_group)$lat$bounds)
+          out_axis <- makeLatitudeAxis(private$llgrid$varLat$name, out_group, aux$aoi$dimnames[[1L]], aux$aoi$bounds(out_group)$lat$coordinates)
         } else { # No auxiliary coordinates
           rng <- NULL
           if (!is.null(.aoi))
@@ -429,6 +436,9 @@ CFVariable <- R6::R6Class("CFVariable",
             out_axis <- axis$subset(out_group, idx)
           }
         }
+
+        # Set the label set of the axis on the new axis
+        out_axis$active_coordinates <- axis$active_coordinates
 
         # Collect axes for result
         if (out_axis$length == 1L)
@@ -605,6 +615,7 @@ dimnames.CFVariable <- function(x) {
       start <- vector("integer", numaxes)
       count <- vector("integer", numaxes)
       dnames <- vector("list", numaxes)
+      names(dnames) <- dimnames(x)[1:numaxes]
       for (d in seq_along(sc)) {
         ax <- x$axes[[d]]
         tm <- ax$time()
@@ -634,7 +645,7 @@ dimnames.CFVariable <- function(x) {
   # Apply dimension data and other attributes
   if (length(x$axes) && length(dim(data)) == length(dnames)) { # dimensions may have been dropped automatically, e.g. NC_CHAR to character string
     dimnames(data) <- dnames
-    ax <- sapply(x$axes, function(ax) if (ax$length > 1L) x$orientation)
+    ax <- sapply(x$axes, function(ax) if (ax$length > 1L) ax$orientation)
     ax <- ax[lengths(ax) > 0L]
     attr(data, "axis") <- ax
   }

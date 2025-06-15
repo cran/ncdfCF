@@ -14,8 +14,8 @@ Downloads](https://cranlogs.r-pkg.org/badges/grand-total/ncdfCF)](https://cran.r
 [![License: GPL
 v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org)
 [![Last
-commit](https://img.shields.io/github/last-commit/pvanlaake/ncdfCF)](https://github.com/pvanlaake/ncdfCF/commits/main)
-[![R-CMD-check](https://github.com/pvanlaake/ncdfCF/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pvanlaake/ncdfCF/actions/workflows/R-CMD-check.yaml)
+commit](https://img.shields.io/github/last-commit/R-CF/ncdfCF)](https://github.com/R-CF/ncdfCF/commits/main)
+[![R-CMD-check](https://github.com/R-CF/ncdfCF/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/R-CF/ncdfCF/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 The `ncdfCF` package provides an easy to use interface to netCDF
@@ -222,10 +222,11 @@ ts <- t2m[5, 4, ]
 str(ts)
 #>  num [1, 1, 1:24] 293 292 292 291 291 ...
 #>  - attr(*, "dimnames")=List of 3
-#>   ..$ : chr "28.4"
-#>   ..$ : chr "-1.3"
-#>   ..$ : chr [1:24] "2016-01-01T00:00:00" "2016-01-01T01:00:00" "2016-01-01T02:00:00" "2016-01-01T03:00:00" ...
-#>  - attr(*, "axis")= Named list()
+#>   ..$ longitude: chr "28.4"
+#>   ..$ latitude : chr "-1.3"
+#>   ..$ time     : chr [1:24] "2016-01-01T00:00:00" "2016-01-01T01:00:00" "2016-01-01T02:00:00" "2016-01-01T03:00:00" ...
+#>  - attr(*, "axis")= Named chr [1:3] "X" "Y" "T"
+#>   ..- attr(*, "names")= chr [1:3] "longitude" "latitude" "time"
 #>  - attr(*, "time")=List of 1
 #>   ..$ time:CFTime with origin [hours since 1900-01-01 00:00:00.0] using calendar [standard] having 24 offset values
 
@@ -234,10 +235,11 @@ ts <- t2m[, , 12]
 str(ts)
 #>  num [1:31, 1:21, 1] 300 300 300 300 300 ...
 #>  - attr(*, "dimnames")=List of 3
-#>   ..$ : chr [1:31] "28" "28.1" "28.200001" "28.299999" ...
-#>   ..$ : chr [1:21] "-1" "-1.1" "-1.2" "-1.3" ...
-#>   ..$ : chr "2016-01-01T11:00:00"
-#>  - attr(*, "axis")= Named list()
+#>   ..$ longitude: chr [1:31] "28" "28.1" "28.200001" "28.299999" ...
+#>   ..$ latitude : chr [1:21] "-1" "-1.1" "-1.2" "-1.3" ...
+#>   ..$ time     : chr "2016-01-01T11:00:00"
+#>  - attr(*, "axis")= Named chr [1:3] "X" "Y" "T"
+#>   ..- attr(*, "names")= chr [1:3] "longitude" "latitude" "time"
 #>  - attr(*, "time")=List of 1
 #>   ..$ time:CFTime with origin [hours since 1900-01-01 00:00:00.0] using calendar [standard] having 1 offset values
 ```
@@ -523,4 +525,4 @@ You can install the development version of `ncdfCF` from
 [GitHub](https://github.com/) with:
 
     # install.packages("devtools")
-    devtools::install_github("pvanlaake/ncdfCF")
+    devtools::install_github("R-CF/ncdfCF")

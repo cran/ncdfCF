@@ -29,6 +29,7 @@ CFLabel <- R6::R6Class("CFLabel",
       super$initialize(nc_var)
       self$NCdim <- nc_dim
 
+      dim(values) <- NULL
       private$values <- values
       if(nc_var$vtype %in% c("NC_CHAR", "NC_STRING"))
         private$values <- trimws(private$values)
@@ -65,7 +66,7 @@ CFLabel <- R6::R6Class("CFLabel",
       else {
         dim <- NCDimension$new(-1L, self$name, rng[2L] - rng[1L] + 1L, FALSE)
         var <- NCVariable$new(-1L, self$name, grp, "NC_STRING", 1L, NULL)
-        CFLabel$new(grp, var, dim, private$values[rng[1L]:rng[2L]])
+        CFLabel$new(var, dim, private$values[rng[1L]:rng[2L]])
       }
     },
 
@@ -94,7 +95,7 @@ CFLabel <- R6::R6Class("CFLabel",
     #' @field coordinates (read-only) The label set as a vector.
     coordinates = function(value) {
       if (missing(value))
-        private$values
+        private$get_values()
     },
 
     #' @field length (read-only) The number of labels in the set.

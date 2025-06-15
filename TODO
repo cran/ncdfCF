@@ -10,10 +10,12 @@ Every push to GitHub
  - Run check()!
 
 Priority
- - Do something intelligent with AOI
+ - CFAxisVertical calculate grids
  - Move most things to private, leave only user-facing methods and fields public
- - Website
- - Github organization
+ - Write NetCDF files for CFDataset and from scratch
+
+ - Standard name table to match with `standard_name` attribute and its `units`.
+ - Do something intelligent with AOI
  - ACDD
  - Drop bounds ond auxgrid values and reload when needed
  - Make a helper class to deal with axis coordinates. Compress when regular.
@@ -21,17 +23,13 @@ Priority
  - Labels are not necessarily associated with an axis. E.g. labels used in
  `cell_methods` where clause. Where to store these?
  - CFCellMethods: parse the attribute, check the values
- - Testing
- - CFAxisVertical calculate grids
- - Standard name table to match with `standard_name` attribute and its `units`.
- - Write NetCDF files for CFDataset and from scratch
+ - Add data to an unlimited dimension, write to file
 
 Future
  - Basic math on CFArray: Math and Ops group functions like + - * / ^
  - CFData$plot(), using ncdfCF vignette (first attempt in R projects folder)
  - subset() with multiple labels, possibly discontinuous
  - Fix auxll caching when same aoi is set
- - CFArray merge multiple instances.
  - Support more manipulation on attributes: merge
  - crossing the dateline: subset() and AOI -> https://github.com/r-spatial/stars/issues/700
  - Collect non-standard evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
