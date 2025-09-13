@@ -11,33 +11,35 @@
 #' @export
 CFAxisCharacter <- R6::R6Class("CFAxisCharacter",
   inherit = CFAxis,
+  cloneable = FALSE,
   private = list(
-    # The character labels of this axis.
-    values = NULL,
-
-    get_values = function() {
-      private$values
-    },
-
     dimvalues_short = function() {
-      if (self$length) sprintf("[%s]", paste0(private$values, collapse = ", "))
+      if (self$length) sprintf("[%s]", paste0(self$values, collapse = ", "))
       else "(no values)"
     }
   ),
   public = list(
     #' @description Create a new instance of this class.
     #'
-    #'   Creating a new character axis is more easily done with the [makeAxis()]
-    #'   function.
-    #' @param nc_var The netCDF variable that describes this instance.
-    #' @param nc_dim The netCDF dimension that describes the dimensionality.
-    #' @param orientation The orientation (`X`, `Y`, `Z`, or `T`) or `""` if
-    #' different or unknown.
-    #' @param values The character coordinates of this axis.
-    initialize = function(nc_var, nc_dim, orientation, values) {
-      super$initialize(nc_var, nc_dim, orientation)
-      private$values <- values
-      self$set_attribute("actual_range", nc_var$vtype, range(values))
+    #'   Creating a new character axis is more easily done with the
+    #'   [makeCharacterAxis()] function.
+    #' @param var The name of the axis when creating a new axis. When reading an
+    #'   axis from file, the [NCVariable] object that describes this instance.
+    #' @param values Optional. The values of the axis in a vector. These must be
+    #'   character values. Ignored when argument `var` is a NCVariable object.
+    #' @param start Optional. Integer index where to start reading axis data
+    #'   from file. The index may be `NA` to start reading data from the start.
+    #' @param count Optional. Number of elements to read from file. This may be
+    #'   `NA` to read to the end of the data.
+    #' @param attributes Optional. A `data.frame` with the attributes of the
+    #'   axis. When an empty `data.frame` (default) and argument `var` is an
+    #'   NCVariable instance, attributes of the axis will be taken from the
+    #'   netCDF resource.
+    initialize = function(var, values, start = 1L, count = NA, attributes = data.frame()) {
+      if (!missing(values) && !is.character(values))
+        stop("Must pass character coordinates to a character axis.", call. = FALSE) # nocov
+
+      super$initialize(var, values = values, start = start, count = count, attributes = attributes)
     },
 
     #' @description Some details of the axis.
@@ -49,13 +51,98 @@ CFAxisCharacter <- R6::R6Class("CFAxisCharacter",
       out
     },
 
+    #' @description Create a copy of this axis. The copy is completely separate
+    #'   from this axis, meaning that the new axis and all of its components are
+    #'   made from new instances. If this axis is backed by a netCDF resource,
+    #'   the copy will retain the reference to the resource.
+    #' @param name The name for the new axis. If an empty string is passed, will
+    #'   use the name of this axis.
+    #' @return The newly created axis.
+    copy = function(name = "") {
+      if (self$has_resource) {
+        ax <- CFAxisCharacter$new(self$NCvar, start = private$.start_count$start,
+                                  count = private$.start_count$count, attributes = self$attributes)
+        if (nzchar(name))
+          ax$name <- name
+      } else {
+        if (!nzchar(name))
+          name <- self$name
+        ax <- CFAxisCharacter$new(name, values = self$values, attributes = self$attributes)
+      }
+      private$copy_properties_into(ax)
+    },
+
+    #' @description Create a copy of this axis but using the supplied values.
+    #'   The attributes are copied to the new axis. Boundary values and
+    #'   auxiliary coordinates are not copied.
+    #'
+    #'   After this operation the attributes of the newly created axes may not
+    #'   be accurate, except for the "actual_range" attribute. The calling code
+    #'   should set, modify or delete attributes as appropriate.
+    #' @param name The name for the new axis. If an empty string is passed, will
+    #'   use the name of this axis.
+    #' @param values The values to the used with the copy of this axis.
+    #' @return The newly created axis.
+    copy_with_values = function(name = "", values) {
+      if (!nzchar(name))
+        name <- self$name
+      CFAxisCharacter$new(name, values = values, attributes = self$attributes)
+    },
+
+    #' @description Given a range of domain coordinate values, returns the
+    #'   indices into the axis that fall within the supplied range.
+    #' @param rng A character vector whose extreme (alphabetic) values indicate
+    #'   the indices of coordinates to return.
+    #' @return An integer vector of length 2 with the lower and higher indices
+    #'   into the axis that fall within the range of coordinates in argument
+    #'   `rng`. Returns `NULL` if no values of the axis fall within the range of
+    #'   coordinates.
+    slice = function(rng) {
+      res <- range(match(rng, self$coordinates, nomatch = 0L), na.rm = TRUE)
+      if (all(res == 0L)) NULL
+      else if (res[1L] == 0L) c(res[2L], res[2L])
+      else if (res[2L] == 0L) c(res[1L], res[1L])
+      else res
+    },
+
+    #' @description Return an axis spanning a smaller coordinate range. This
+    #'   method returns an axis which spans the range of indices given by the
+    #'   `rng` argument.
+    #' @param name The name for the new axis. If an empty string is passed
+    #'   (default), will use the name of this axis.
+    #' @param rng The range of indices whose values from this axis to include in
+    #'   the returned axis. If the value of the argument is `NULL`, return a
+    #'   copy of the axis.
+    #' @return A new `CFAxisCharacter` instance covering the indicated range of
+    #'   indices. If the value of the argument `rng` is `NULL`, return a copy of
+    #'   this axis as the new axis.
+    subset = function(name = "", rng = NULL) {
+      if (is.null(rng))
+        self$copy(name)
+      else {
+        rng <- range(rng)
+        if (self$has_resource) {
+          ax <- CFAxisCharacter$new(private$.NCvar, start = private$.start_count$start + rng[1L] -1L,
+                                    count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
+          if (nzchar(name))
+            ax$name <- name
+        } else {
+          if (!nzchar(name))
+            name <- self$name
+          ax <- CFAxisCharacter$new(name, values = private$.values[rng[1L]:rng[2L]],
+                                    attributes = self$attributes)
+        }
+        private$copy_properties_into(ax, rng)
+      }
+    },
+
     #' @description Tests if the axis passed to this method is identical to
     #'   `self`.
     #' @param axis The `CFAxisCharacter` instance to test.
     #' @return `TRUE` if the two axes are identical, `FALSE` if not.
     identical = function(axis) {
       super$identical(axis) &&
-      all(private$values == axis$values)
+      all(self$values == axis$values)
     },
 
     #' @description Append a vector of values at the end of the current values
@@ -65,10 +152,8 @@ CFAxisCharacter <- R6::R6Class("CFAxisCharacter",
     #' @return A new `CFAxisCharacter` instance with values from `self` and the
     #'   `from` axis appended.
     append = function(from) {
-      if (super$can_append(from) && !any(from$values %in% private$values)) {
-        axis <- makeAxis(self$name, makeGroup(), "", c(private$values, from$values))
-        axis$attributes <- self$attributes
-        axis
+      if (super$can_append(from) && !any(from$values %in% self$values)) {
+        CFAxisCharacter(self$name, values = c(self$values, from$values), attributes = self$attributes)
       } else
         stop("Axis values are not unique after appending.", call. = FALSE)
     },
@@ -83,7 +168,7 @@ CFAxisCharacter <- R6::R6Class("CFAxisCharacter",
     #' @return Numeric vector of the same length as `x`. Values of `x` that are
     #'   not equal to a coordinate of the axis are returned as `NA`.
     indexOf = function(x, method = "constant", rightmost.closed = TRUE) {
-      match(x, private$values)
+      match(x, self$values)
     }
   ),
   active = list(
@@ -96,7 +181,7 @@ CFAxisCharacter <- R6::R6Class("CFAxisCharacter",
     #' vector.
     dimnames = function(value) {
     if (missing(value))
-      private$values
+      self$values
     }
   )
 )

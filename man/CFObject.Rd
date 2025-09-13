@@ -9,28 +9,41 @@ This class is a basic ancestor to all classes that represent CF
 objects, specifically data variables and axes. More useful classes use this
 class as ancestor.
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{NCvar}}{The \link{NCVariable} instance that this CF object represents.}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{id}}{(read-only) The identifier of the CF object.}
+\item{\code{id}}{(read-only) Retrieve the identifier of the CF object.}
 
-\item{\code{name}}{(read-only) The name of the CF object.}
+\item{\code{name}}{Set or retrieve the name of the CF object. The name must be a
+valid netCDF name: start with a character, use only characters, numbers
+and the underscore, and be at most 255 characters long.}
 
 \item{\code{fullname}}{(read-only) The fully-qualified name of the CF object.}
 
-\item{\code{group}}{Retrieve the \link{NCGroup} that this object is located in.}
+\item{\code{group}}{(read-only) Retrieve the \link{NCGroup} that this object is
+located in.}
 
-\item{\code{attributes}}{Set or retrieve a \code{data.frame} with the attributes of
-the CF object.}
+\item{\code{attributes}}{(read-only) Retrieve a \code{data.frame} with the attributes
+of the CF object.}
+
+\item{\code{has_resource}}{(read-only) Flag that indicates if this object has an
+underlying netCDF resource.}
+
+\item{\code{NCvar}}{(read-only) The \code{NCVariable} object that links to an
+underlying netCDF resource, or \code{NULL} if not linked.}
+
+\item{\code{data_type}}{Set or retrieve the data type of the data in the
+object. Setting the data type to a wrong value can have unpredictable
+but catastrophic consequences.}
+
+\item{\code{ndims}}{(read-only) Retrieve the dimensionality of the data in the
+array, or the netCDF resource.}
+
+\item{\code{array_indices}}{Returns a list with columns "start" and "count"
+giving the indices for reading the data of this object from a netCDF
+resource.}
 }
 \if{html}{\out{</div>}}
 }
@@ -38,13 +51,15 @@ the CF object.}
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-CFObject-new}{\code{CFObject$new()}}
+\item \href{#method-CFObject-detach}{\code{CFObject$detach()}}
+\item \href{#method-CFObject-dim}{\code{CFObject$dim()}}
 \item \href{#method-CFObject-attribute}{\code{CFObject$attribute()}}
 \item \href{#method-CFObject-print_attributes}{\code{CFObject$print_attributes()}}
 \item \href{#method-CFObject-set_attribute}{\code{CFObject$set_attribute()}}
 \item \href{#method-CFObject-append_attribute}{\code{CFObject$append_attribute()}}
 \item \href{#method-CFObject-delete_attribute}{\code{CFObject$delete_attribute()}}
 \item \href{#method-CFObject-write_attributes}{\code{CFObject$write_attributes()}}
-\item \href{#method-CFObject-add_coordinates}{\code{CFObject$add_coordinates()}}
+\item \href{#method-CFObject-update_coordinates_attribute}{\code{CFObject$update_coordinates_attribute()}}
 \item \href{#method-CFObject-clone}{\code{CFObject$clone()}}
 }
 }
@@ -52,32 +67,85 @@ the CF object.}
 \if{html}{\out{<a id="method-CFObject-new"></a>}}
 \if{latex}{\out{\hypertarget{method-CFObject-new}{}}}
 \subsection{Method \code{new()}}{
-Create a new CF object instance from a variable in a netCDF
+Create a new \code{CFobject} instance from a variable in a netCDF
 resource. This method is called upon opening a netCDF resource. It is
-rarely, if ever, useful to call this constructor directly from the
-console. Instead, use the methods from higher-level classes such as
-\link{CFVariable}.
+rarely, if ever, useful to call this constructor directly. Instead, use
+the methods from higher-level classes such as \link{CFVariable}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFObject$new(nc_var)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFObject$new(var, values, start = 1L, count = NA, attributes = data.frame())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{nc_var}}{The \link{NCVariable} instance upon which this CF object is
-based.}
+\item{\code{var}}{The \link{NCVariable} instance upon which this CF object is based
+when read from a netCDF resource, or the name for the new CF object to
+be created.}
+
+\item{\code{values}}{Optional. The values of the object in an array.}
+
+\item{\code{start}}{Optional. Vector of indices where to start reading data
+along the dimensions of the array on file. The vector must be \code{NA} to
+read all data, otherwise it must have agree with the dimensions of the
+array on file. Ignored when argument \code{var} is not an \code{NCVariable}
+instance.}
+
+\item{\code{count}}{Optional. Vector of number of elements to read along each
+dimension of the array on file. The vector must be \code{NA} to read to the
+end of each dimension, otherwise its value must agree with the
+corresponding \code{start} value and the dimension of the array on file.
+Ignored when argument \code{var} is not an \code{NCVariable} instance.}
+
+\item{\code{attributes}}{Optional. A \code{data.frame} with the attributes of the
+object. When argument \code{var} is an \code{NCVariable} instance and this
+argument is an empty \code{data.frame} (default), arguments will be read
+from the resource.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{CFobject} instance.
+A \code{CFObject} instance.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFObject-detach"></a>}}
+\if{latex}{\out{\hypertarget{method-CFObject-detach}{}}}
+\subsection{Method \code{detach()}}{
+Detach the current object from its underlying netCDF
+resource. If necessary, data is read from the resource before
+detaching.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFObject$detach()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFObject-dim"></a>}}
+\if{latex}{\out{\hypertarget{method-CFObject-dim}{}}}
+\subsection{Method \code{dim()}}{
+Retrieve the dimensions of the data of this object. This
+could be for the data on file or for in-memory data.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFObject$dim(dimension)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{dimension}}{Optional. The index of the dimension to retrieve the
+length for. If omitted, retrieve the lengths of all dimensions.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Integer vector with the length of each requested dimension.
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFObject-attribute"></a>}}
 \if{latex}{\out{\hypertarget{method-CFObject-attribute}{}}}
 \subsection{Method \code{attribute()}}{
-Retrieve attributes of any CF object.
+Retrieve an attribute of a CF object.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFObject$attribute(att, field = "value")}\if{html}{\out{</div>}}
 }
@@ -85,7 +153,7 @@ Retrieve attributes of any CF object.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{att}}{Vector of character strings of attributes to return.}
+\item{\code{att}}{Single character string of attribute to return.}
 
 \item{\code{field}}{The field of the attribute to return values from. This must
 be "value" (default) or "type".}
@@ -105,7 +173,7 @@ value of argument \code{att} \code{NA} is returned.
 \subsection{Method \code{print_attributes()}}{
 Print the attributes of the CF object to the console.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFObject$print_attributes(width = 50L)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFObject$print_attributes(width = 30L)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -191,7 +259,7 @@ Self, invisibly.
 \if{html}{\out{<a id="method-CFObject-delete_attribute"></a>}}
 \if{latex}{\out{\hypertarget{method-CFObject-delete_attribute}{}}}
 \subsection{Method \code{delete_attribute()}}{
-Delete an attribute. If an attribute \code{name} is not present
+Delete attributes. If an attribute \code{name} is not present
 this method simply returns.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFObject$delete_attribute(name)}\if{html}{\out{</div>}}
@@ -200,7 +268,7 @@ this method simply returns.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{name}}{The name of the attribute to delete.}
+\item{\code{name}}{Vector of names of the attributes to delete.}
 }
 \if{html}{\out{</div>}}
 }
@@ -231,19 +299,21 @@ Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFObject-add_coordinates"></a>}}
-\if{latex}{\out{\hypertarget{method-CFObject-add_coordinates}{}}}
-\subsection{Method \code{add_coordinates()}}{
-Add names of axes to the "coordinates" attribute, avoiding
-duplicates and retaining previous values.
+\if{html}{\out{<a id="method-CFObject-update_coordinates_attribute"></a>}}
+\if{latex}{\out{\hypertarget{method-CFObject-update_coordinates_attribute}{}}}
+\subsection{Method \code{update_coordinates_attribute()}}{
+Add names of axes or auxiliary coordinates to the
+"coordinates" attribute, avoiding duplicates and retaining previous
+values.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFObject$add_coordinates(crds)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFObject$update_coordinates_attribute(crds)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{crds}}{Vector of axis names to add to the attribute.}
+\item{\code{crds}}{Vector of axis or auxiliary coordinate names to add to the
+attribute.}
 }
 \if{html}{\out{</div>}}
 }

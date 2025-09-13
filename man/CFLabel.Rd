@@ -5,30 +5,29 @@
 \alias{CFLabel}
 \title{CF label object}
 \description{
-This class represent CF labels, i.e. an NC variable of character
+This class represent CF labels, i.e. a variable of character
 type that provides a textual label for a discrete or general numeric axis.
 See also \link{CFAxisCharacter}, which is an axis with character labels.
 }
 \section{Super class}{
 \code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFLabel}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{NCdim}}{The \link{NCDimension} that stores the netCDF dimension details.}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{coordinates}}{(read-only) The label set as a vector.}
+\item{\code{coordinates}}{Set or retrieve the labels of this object. Upon
+retrieval, label values are read from the netCDF resource, if there is
+one, upon first access and cached thereafter. Upon setting values, if
+there is a linked netCDF resource, this object will be detached from
+it.}
 
 \item{\code{length}}{(read-only) The number of labels in the set.}
 
-\item{\code{dimid}}{(read-only) The netCDF dimension id of this label set.}
+\item{\code{dimid}}{(read-only) The netCDF dimension id of this label set. This
+field should only be accessed if the label set is backed by a netCDF
+resource.}
 }
 \if{html}{\out{</div>}}
 }
@@ -37,6 +36,7 @@ See also \link{CFAxisCharacter}, which is an axis with character labels.
 \itemize{
 \item \href{#method-CFLabel-new}{\code{CFLabel$new()}}
 \item \href{#method-CFLabel-print}{\code{CFLabel$print()}}
+\item \href{#method-CFLabel-slice}{\code{CFLabel$slice()}}
 \item \href{#method-CFLabel-subset}{\code{CFLabel$subset()}}
 \item \href{#method-CFLabel-write}{\code{CFLabel$write()}}
 \item \href{#method-CFLabel-clone}{\code{CFLabel$clone()}}
@@ -45,12 +45,14 @@ See also \link{CFAxisCharacter}, which is an axis with character labels.
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="detach"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-detach'><code>ncdfCF::CFObject$detach()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
@@ -61,19 +63,34 @@ See also \link{CFAxisCharacter}, which is an axis with character labels.
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$new(nc_var, nc_dim, values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$new(var, values = NA, start = NA, count = NA)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{nc_var}}{The netCDF variable that describes this instance.}
+\item{\code{var}}{The \link{NCVariable} instance upon which this CF object is based
+when read from a netCDF resource, or the name for the object new CF
+object to be created.}
 
-\item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
+\item{\code{values}}{Optional. The labels of the CF object. Ignored when
+argument \code{var} is a \code{NCVariable} object.}
 
-\item{\code{values}}{Character vector of the label values.}
+\item{\code{start}}{Optional. Integer index value indicating where to start
+reading data from the file. The value may be \code{NA} (default) to read all
+data, otherwise it must not be larger than the number of labels.
+Ignored when argument \code{var} is not an \code{NCVariable} instance.}
+
+\item{\code{count}}{Optional. Integer value indicating the number of labels to
+read from file. The value may be \code{NA} to read to the end of the labels,
+otherwise its value must agree with the corresponding \code{start} value and
+the number of labels on file. Ignored when argument \code{var} is not an
+\code{NCVariable} instance.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A \code{CFLabel} instance.
 }
 }
 \if{html}{\out{<hr>}}
@@ -93,8 +110,30 @@ is \verb{width = } to indicate a maximum width of attribute columns.}
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFLabel-slice"></a>}}
+\if{latex}{\out{\hypertarget{method-CFLabel-slice}{}}}
+\subsection{Method \code{slice()}}{
+Given a range of domain coordinate values, returns the
+indices into the axis that fall within the supplied range.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$slice(rng)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{rng}}{A character vector whose extreme (alphabetic) values indicate
+the indices of coordinates to return.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
-\code{self}, invisibly.
+An integer vector of length 2 with the lower and higher indices
+into the axis that fall within the range of coordinates in argument
+\code{rng}. Returns \code{NULL} if no values of the axis fall within the range of
+coordinates.
 }
 }
 \if{html}{\out{<hr>}}
@@ -103,15 +142,16 @@ is \verb{width = } to indicate a maximum width of attribute columns.}
 \subsection{Method \code{subset()}}{
 Retrieve a subset of the labels.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$subset(grp, rng)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$subset(name, rng)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{grp}}{The group to create the new label object in.}
+\item{\code{name}}{The name for the new label set, optional.}
 
-\item{\code{rng}}{The range of indices to retrieve.}
+\item{\code{rng}}{The range of indices whose values from this axis to include in
+the returned axis.}
 }
 \if{html}{\out{</div>}}
 }
@@ -125,7 +165,7 @@ A \code{CFLabel} instance, or \code{NULL} if the \code{rng} values are invalid.
 \subsection{Method \code{write()}}{
 Write the labels to a netCDF file, including its attributes.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$write(nc)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$write(nc, dim)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -135,6 +175,10 @@ Write the labels to a netCDF file, including its attributes.
 the netCDF file. If \code{NULL}, write to the file or group where the labels
 were read from (the file must have been opened for writing). If not
 \code{NULL}, the handle to a netCDF file or a group therein.}
+
+\item{\code{dim}}{The dimension to write the labels for. This is the name or
+dimension id of the object that owns these labels. The dimension must
+have been written to file before this method is called.}
 }
 \if{html}{\out{</div>}}
 }

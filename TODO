@@ -10,43 +10,51 @@ Every push to GitHub
  - Run check()!
 
 Priority
- - CFAxisVertical calculate grids
+ - CFDomain: domain has the orientation of the axes
+ - CFAxisVertical: tests: V not subset, V subset, V subset parametric, V subset parametric auxiliary
+ - CFAV$copy_terms
+ - CFVariable$profile with aux grid and parametric Z needs fixing
+ - Testing on math and ops functions
+ - Subset an already subsetted parametric vertical axis
  - Move most things to private, leave only user-facing methods and fields public
- - Write NetCDF files for CFDataset and from scratch
 
- - Standard name table to match with `standard_name` attribute and its `units`.
+ - detach(): what about shared objects like axes, crs, llgrid?
+ - Append with aux coordinates in the axes
+ - Do something with CFObject$.data_oversized
+ - Merge CFLabel into CFAxisCharacter??
+ - AUxiliary coordinates subset & profile: must have both axes selected or none
+ - Change reading of files: make an axis for every dimid that is referenced by NCvars
+ - Write NetCDF files for CFDataset and from scratch
+ - Add data to an unlimited dimension, write to file
+ - crossing the dateline: subset() and AOI. CFVariableBase has a central_meridian private field and a cm active field - when set the longitude axis is set to -180 - 180 centered on the cm. Unsetting takes it back to the file setting. If data is loaded it is reordered as necessary, otherwise the data is extracted according to the cm setting.
+
+ - Chunking
+ - Selecting with logical expressions: CFVariable$subset(time >= "2001-01-01", lon > 40 && lon < 60)
  - Do something intelligent with AOI
  - ACDD
- - Drop bounds ond auxgrid values and reload when needed
+ - Drop bounds, vertical parametrics, standard_names and auxgrid values and reload when needed, only when access to netCDF resource is present
  - Make a helper class to deal with axis coordinates. Compress when regular.
- - Boundary "axes" delete
- - Labels are not necessarily associated with an axis. E.g. labels used in
- `cell_methods` where clause. Where to store these?
+ - Labels are not necessarily associated with an axis. E.g. labels used in `cell_methods` where clause. Where to store these?
  - CFCellMethods: parse the attribute, check the values
- - Add data to an unlimited dimension, write to file
 
 Future
- - Basic math on CFArray: Math and Ops group functions like + - * / ^
  - CFData$plot(), using ncdfCF vignette (first attempt in R projects folder)
- - subset() with multiple labels, possibly discontinuous
+ - subset() with multiple discontinuous labels
  - Fix auxll caching when same aoi is set
  - Support more manipulation on attributes: merge
- - crossing the dateline: subset() and AOI -> https://github.com/r-spatial/stars/issues/700
  - Collect non-standard evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
       * dimension without NC variable, axis designation from name, CRS without grid_mapping when not lat-long
- - Set CRS, axis designations, units, etc in CFVariable and/or CFData, flag `isDirty` field in CFObject
- - GridMapping with methods to query CRS elements
+ - GridMapping with methods to query CRS elements, check identical CRSes
  - CFVariable$subset(subset, resample, method, closed): subset geeft bounds along each axis,
  resample is resolution in every axis direction, method in (nn, linear), closed also per axis. See SciPy::interpn
  - Analyze if sources belong together -> aggregation in CF terms
- - Select slice of data with `[`, tidyverse style
  - THREDDS catalog
  - DSG
 
 Notes:
  - CF objects should never read (or write) data themselves. The underlying NC
  objects could be in groups other than the CF object, such as ancillary CVs or
- formula terms. Pass the read/write request off to the respective NC object instead
+ formula terms. Pass the read/write request off to the respective NC object instead or at least get the handle from there.
 
 INTERESTING DATA
 Sentinel5p: "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/starsdata/sentinel5p/S5P_NRTI_L2__NO2____20180717T120113_20180717T120613_03932_01_010002_20180717T125231.nc"
@@ -58,9 +66,7 @@ https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/uv3z  #?depth[0:1:39],lat
 "https://thredds.met.no/thredds/dodsC/metpparchivev3/2020/01/01/met_analysis_1_0km_nordic_20200101T00Z.nc"
 (http://thredds.northwestknowledge.net:8080/thredds/catalog/MET/climatologies/monthlyClimatologies/catalog.html)
 Multiple time axes, flags: https://www.ncei.noaa.gov/thredds/dodsC/ncFC/cdr/ndvi-fc/AVHRR_and_VIIRS_NDVI:_aggregation_best.ncd
-
-STANDARD NAMES
-https://cfconventions.org/Data/cf-standard-names/current/src/cf-standard-name-table.xml
+https://thredds.nci.org.au
 
 INTERESTING PACKAGES
 metR

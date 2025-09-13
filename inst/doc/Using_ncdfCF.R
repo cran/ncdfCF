@@ -16,13 +16,13 @@ fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 # Variables can be accessed through standard list-type extraction syntax
 (t2m <- ds[["t2m"]])
   
-# Same with dimensions, but now without first assigning the object to a symbol
+# Same with axes, but now without first assigning the object to a symbol
 ds[["longitude"]]
   
 # Regular base R operations simplify life further
-dimnames(ds[["pev"]]) # A variable: list of dimension names
+dimnames(ds[["pev"]]) # A data variable: list of axis names
   
-dimnames(ds[["longitude"]]) # A dimension: vector of dimension element values
+dimnames(ds[["longitude"]]) # An axis: vector of axis coordinate values
   
 # Access attributes
 ds[["pev"]]$attribute("long_name")
@@ -47,11 +47,22 @@ str(ts)
                   X = c(29.6, 28.8),
                   Y = seq(-2, -1, by = 0.05)))
 
-## ----cfarray------------------------------------------------------------------
-# Open a file and read the data from a variable into a CFArray instance
+## ----KtoC---------------------------------------------------------------------
+tsC <- ts - 273.15
+tsC$set_attribute("units", "NC_CHAR", "degrees_Celsius")
+tsC
+
+## ----hot----------------------------------------------------------------------
+# This produces a "logical" CFVariable: all values are 0 (FALSE) or 1 (TRUE)
+tsHot <- tsC > 20
+tsHot$set_attribute("units", "NC_CHAR", "1")
+tsHot
+
+## ----orienting----------------------------------------------------------------
+# Open a file and read the data from a variable into a CFVariable instance
 fn <- system.file("extdata", "tasmax_NAM-44_day_20410701-vncdfCF.nc", package = "ncdfCF")
 ds <- open_ncdf(fn)
-(tx <- ds[["tasmax"]]$data())
+tx <- ds[["tasmax"]]
 
 # Use the terra package for plotting
 # install.packages("terra")
@@ -65,7 +76,7 @@ str(tx_raw)
 (r <- rast(tx_raw))
 plot(r)
 
-## ----cfarray2-----------------------------------------------------------------
+## ----array--------------------------------------------------------------------
 tx_array <- tx$array()
 str(tx_array)
 r <- rast(tx_array)

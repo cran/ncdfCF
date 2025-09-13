@@ -16,31 +16,27 @@ properties are thus made accessible.
 \section{Super class}{
 \code{\link[ncdfCF:NCObject]{ncdfCF::NCObject}} -> \code{NCVariable}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{group}}{NetCDF group where this variable is located.}
-
-\item{\code{vtype}}{The netCDF data type of this variable. This could be the
-packed type. Don't check this field but use the appropriate method in the
-class of the object whose data type you are looking for.}
-
-\item{\code{ndims}}{Number of dimensions that this variable uses.}
-
-\item{\code{dimids}}{Vector of dimension identifiers that this variable uses.
-These are the so-called "NUG coordinate variables".}
-
-\item{\code{netcdf4}}{Additional properties for a \code{netcdf4} resource.}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{CF}}{List of CF objects that use this netCDF variable.}
+\item{\code{group}}{(read-only) NetCDF group where this variable is located.}
 
-\item{\code{fullname}}{(read-only) Name of the NC variable including the group
-path from the root group.}
+\item{\code{vtype}}{(read-only) The netCDF data type of this variable. This could be the
+packed type. Don't check this field but use the appropriate method in the
+class of the object whose data type you are looking for.}
+
+\item{\code{ndims}}{(read-only) Number of dimensions that this variable uses.}
+
+\item{\code{dimids}}{(read-only) Vector of dimension identifiers that this
+NCVariable uses.}
+
+\item{\code{netcdf4}}{(read-only) Additional properties for a \code{netcdf4} resource.}
+
+\item{\code{CF}}{Register CF object that uses this netCDF variable, or retrieve
+the list of registered CF objects.}
+
+\item{\code{fullname}}{(read-only) Name of this netCDF variable including the
+group path from the root group.}
 }
 \if{html}{\out{</div>}}
 }
@@ -50,18 +46,18 @@ path from the root group.}
 \item \href{#method-NCVariable-new}{\code{NCVariable$new()}}
 \item \href{#method-NCVariable-print}{\code{NCVariable$print()}}
 \item \href{#method-NCVariable-shard}{\code{NCVariable$shard()}}
+\item \href{#method-NCVariable-detach}{\code{NCVariable$detach()}}
+\item \href{#method-NCVariable-get_data}{\code{NCVariable$get_data()}}
+\item \href{#method-NCVariable-dimension}{\code{NCVariable$dimension()}}
+\item \href{#method-NCVariable-dim}{\code{NCVariable$dim()}}
 \item \href{#method-NCVariable-clone}{\code{NCVariable$clone()}}
 }
 }
 \if{html}{\out{
-<details><summary>Inherited methods</summary>
+<details open><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="add_coordinates"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-add_coordinates'><code>ncdfCF::NCObject$add_coordinates()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="append_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-append_attribute'><code>ncdfCF::NCObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-attribute'><code>ncdfCF::NCObject$attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="delete_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-delete_attribute'><code>ncdfCF::NCObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="print_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-print_attributes'><code>ncdfCF::NCObject$print_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="set_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-set_attribute'><code>ncdfCF::NCObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="write_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-write_attributes'><code>ncdfCF::NCObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
@@ -74,7 +70,15 @@ Create a new netCDF variable. This class should not be
 instantiated directly, they are created automatically when opening a
 netCDF resource.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCVariable$new(id, name, group, vtype, ndims, dimids)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NCVariable$new(
+  id,
+  name,
+  group,
+  vtype,
+  dimids,
+  attributes = data.frame(),
+  netcdf4 = list()
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -88,9 +92,13 @@ netCDF resource.
 
 \item{\code{vtype}}{The netCDF data type of the variable.}
 
-\item{\code{ndims}}{The number of dimensions this variable uses.}
-
 \item{\code{dimids}}{The identifiers of the dimensions this variable uses.}
+
+\item{\code{attributes}}{Optional, \code{data.frame} with the attributes of the
+object.}
+
+\item{\code{netcdf4}}{Optional, \code{netcdf4}-specific arguments in the format of
+RNetCDF.}
 }
 \if{html}{\out{</div>}}
 }
@@ -128,6 +136,95 @@ with similar information from other variables.
 
 \subsection{Returns}{
 Character string with very basic variable information.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCVariable-detach"></a>}}
+\if{latex}{\out{\hypertarget{method-NCVariable-detach}{}}}
+\subsection{Method \code{detach()}}{
+Detach the passed object from this NC variable.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCVariable$detach(obj)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{obj}}{The CFObject instance to detach from this NC variable.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{obj}, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCVariable-get_data"></a>}}
+\if{latex}{\out{\hypertarget{method-NCVariable-get_data}{}}}
+\subsection{Method \code{get_data()}}{
+Read (a chunk of) data from the netCDF file. Degenerate
+dimensions are maintained and data is always returned in its smallest
+type.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCVariable$get_data(start = NA, count = NA)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{start}}{A vector of indices specifying the element where reading
+starts along each dimension of the data. When \code{NA}, all data are read
+from the start of the array.}
+
+\item{\code{count}}{An integer vector specifying the number of values to read
+along each dimension of the data. Any \code{NA} value in vector count
+indicates that the corresponding dimension should be read from the
+start index to the end of the dimension.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+An array with the requested data, or an error object.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCVariable-dimension"></a>}}
+\if{latex}{\out{\hypertarget{method-NCVariable-dimension}{}}}
+\subsection{Method \code{dimension()}}{
+Get the \link{NCDimension} object(s) that this variable uses.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCVariable$dimension(id)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id}}{The index of the dimension. If missing, all dimensions of this
+variable are returned.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A \code{NCDimension} object or a list thereof. If no \code{NCDimension}s
+were found, return \code{NULL}.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCVariable-dim"></a>}}
+\if{latex}{\out{\hypertarget{method-NCVariable-dim}{}}}
+\subsection{Method \code{dim()}}{
+The lengths of the data dimensions of this object.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCVariable$dim(dimension)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{dimension}}{Optional. The index of the dimension to retrieve the
+length for. If omitted, retrieve the lengths of all dimensions.}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}

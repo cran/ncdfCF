@@ -6,7 +6,10 @@
 \title{NetCDF dimension object}
 \description{
 This class represents an netCDF dimensions. It contains the
-information on a dimension that is stored in an netCDF file.
+information on a dimension that is stored in an netCDF file. Consequently,
+the properties of this class are all read-only. The length of the dimension
+may change if data is written to an unlimited dimension, but that is
+managed internally.
 
 This class is not very useful for interactive use. Use the \link{CFAxis}
 descendent classes instead.
@@ -14,15 +17,15 @@ descendent classes instead.
 \section{Super class}{
 \code{\link[ncdfCF:NCObject]{ncdfCF::NCObject}} -> \code{NCDimension}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{length}}{The length of the dimension. If field \code{unlim = TRUE}, this
-field indicates the length of the data in this dimension written to file.}
+\item{\code{length}}{(read-only) The length of the dimension. If field \code{unlim = TRUE}, this field indicates the length of the data in this dimension
+written to file.}
 
-\item{\code{unlim}}{Logical flag to indicate if the dimension is unlimited, i.e.
-that additional data may be written to file incrementing in this
-dimension.}
+\item{\code{unlim}}{(read-only) Logical flag to indicate if the dimension is
+unlimited, i.e. that additional data may be written to file
+incrementing this dimension.}
 }
 \if{html}{\out{</div>}}
 }
@@ -31,20 +34,15 @@ dimension.}
 \itemize{
 \item \href{#method-NCDimension-new}{\code{NCDimension$new()}}
 \item \href{#method-NCDimension-print}{\code{NCDimension$print()}}
-\item \href{#method-NCDimension-shard}{\code{NCDimension$shard()}}
 \item \href{#method-NCDimension-write}{\code{NCDimension$write()}}
 \item \href{#method-NCDimension-clone}{\code{NCDimension$clone()}}
 }
 }
 \if{html}{\out{
-<details><summary>Inherited methods</summary>
+<details open><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="add_coordinates"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-add_coordinates'><code>ncdfCF::NCObject$add_coordinates()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="append_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-append_attribute'><code>ncdfCF::NCObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-attribute'><code>ncdfCF::NCObject$attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="delete_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-delete_attribute'><code>ncdfCF::NCObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="print_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-print_attributes'><code>ncdfCF::NCObject$print_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="set_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-set_attribute'><code>ncdfCF::NCObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="write_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-write_attributes'><code>ncdfCF::NCObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
@@ -57,7 +55,7 @@ Create a new netCDF dimension. This class should not be
 instantiated directly, create CF objects instead. This class is
 instantiated when opening a netCDF resource.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCDimension$new(id, name, length, unlim)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NCDimension$new(id, name, length, unlim, group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -70,6 +68,8 @@ instantiated when opening a netCDF resource.
 \item{\code{length}}{Length of the dimension.}
 
 \item{\code{unlim}}{Is the dimension unlimited?}
+
+\item{\code{group}}{The group where the dimension is located.}
 }
 \if{html}{\out{</div>}}
 }
@@ -95,21 +95,6 @@ Summary of the NC dimension printed to the console.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-NCDimension-shard"></a>}}
-\if{latex}{\out{\hypertarget{method-NCDimension-shard}{}}}
-\subsection{Method \code{shard()}}{
-Very concise information on the dimension. The information
-returned by this function is very concise and most useful when combined
-with similar information from other dimensions.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCDimension$shard()}\if{html}{\out{</div>}}
-}
-
-\subsection{Returns}{
-Character string with very basic dimension information.
-}
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-NCDimension-write"></a>}}
 \if{latex}{\out{\hypertarget{method-NCDimension-write}{}}}
 \subsection{Method \code{write()}}{
@@ -124,6 +109,9 @@ Write the dimension to a netCDF file.
 \item{\code{h}}{The handle to the netCDF file to write.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}

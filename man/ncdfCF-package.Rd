@@ -19,8 +19,8 @@ climate change scientists and the Intergovernmental Panel on Climate Change
 Landsat and MODIS.
 }
 \details{
-This package currently supports group traversal with scoping rules, axis
-determination and interpretation, including auxiliary axes, time axis
+This package currently supports most common features of the CF conventions,
+including group traversal with scoping rules, auxiliary axes, time axis
 interpretation with all defined calendars, grid mapping, use of bounds data,
 manipulating and interpreting attributes of groups (including global
 attributes) and variables, search for and use of standard names. Some
@@ -34,6 +34,7 @@ using coordinate values along the axes (such as latitude values, or points in
 time) rather than index values into the array.
 \item Use of auxiliary grids to warp data variables using a non-default grid to
 a regular latitude-longitude grid.
+\item Calculate coordinate fields for parametric vertical axes.
 }
 
 Properties of the netCDF resource objects are easily examined using common R
@@ -62,7 +63,7 @@ inferences can be made about a netCDF resource.
 \strong{Data set}
 
 A \link{CFDataset} is the object that contains a netCDF resource. This is the main
-class that you need to access netCDF data.
+class that you need to access netCDF data from a file or an online resource.
 \itemize{
 \item \code{show()}: Print information about the data set to the console. This will
 print some information on the resource, as well as all identified data
@@ -74,7 +75,7 @@ Metadata Conventions use a "CF-1.*" label.
 \item \code{variables()}, \code{axes()}, \code{attributes()}: Return a \code{list} or \code{data.frame} with
 all objects of the specific type found in the data set.
 \item \code{find_by_name()}: Find a named object in the data set. This can be a data
-variable, an axis, or a grid mapping object. A short-hand method to achieve
+variable, an axis, or any other named object. A short-hand method to achieve
 the same is the \code{[[} operator. This also supports scanning for objects in
 hierarchical groups in \code{netcdf4} resources.
 \item \code{objects_by_standard_name()}: Find objects that use a specific value for
@@ -105,27 +106,45 @@ caller (increasingly more compact) information on a data variable.
 \item \code{axes()}: List of \code{CFAxis} objects representing the axes that the data
 variable uses.
 \item \code{attributes}: \code{data.frame} with the attributes of the data variable.
-\item \code{attribute()}: Retrieve the values of an attribute of the data variable.
+\item \code{attribute()}: Retrieve the value of an attribute of the data variable.
 \item \code{crs}: The so-called grid-mapping object that contains information
 on the coordinate reference system (CRS) of the data variable.
-\item \code{crs_wkt2}: The CRS of the data variable, in WKT2 format. This is derived from
-the data in the grid-mapping object.
+\item \code{crs_wkt2}: The CRS of the data variable, in WKT2 format. This is derived
+from the data in the grid-mapping object.
 }
 
 \emph{\strong{Data extraction}}
 \itemize{
-\item \code{data()}: Extract all data from a data variable into a \code{CFArray} object.
 \item \code{subset()}: Select a subset of data from a variable by specifying extents
-in real-world coordinates for the axes into a \code{CFArray} object. This can also
-process "auxiliary coordinate variables", if present, to warp data from its
-native CRS to latitude-longitude.
+in real-world coordinates for the axes into a \code{CFVariable} object. This can
+also process "auxiliary coordinate variables", if present, to warp data from
+its native CRS to latitude-longitude.
 \item \code{summarise()}: Summarise the data in the data variable over the "time"
-axis, using a user-defined function, returning a \code{CFArray} object. The
+axis, using a user-defined function, returning a \code{CFVariable} object. The
 function can be built-in (such as \code{min()} and \code{max()}) or a user-developed
 function. The function may also return a vector with multiple values (such as
-\code{range()}) and then a list of \code{CFArray} objects is returned, one for each
+\code{range()}) and then a list of \code{CFVariable} objects is returned, one for each
 result of the function.
+\item \code{profile()}: Extract a profile of data from the variable into a \code{CFVariable}
+or a \code{data.table}. Profiles can be for a single location, or zonal (e.g.
+across a longitude); multiple profiles can be extracted in a single call.
+\item \code{raw()}: The array of data values from the data object as read from the
+netCDF resource.
+\item \code{array()}: The array of data values from the data object, oriented in the
+standard R arrangement.
+\item \code{terra()}: (requires the \code{terra} package) The data values from the data
+object as a \code{terra::SpatRaster} (2 or 3 dimensions) or
+\code{terra::SpatRasterDataset} (4 dimensions), with all relevant properties set.
+\item \code{data.table()}: (requires the \code{data.table} package) The data values from
+the data object as a \code{data.table} where every row consists of the permutation
+of the axis values and a final data value.
 }
+
+\emph{\strong{New data variables}}
+
+New \code{CFVariable} objects can be constructed from R vectors, matrices or
+arrays, optionally creating axes from dimnames on the R object, using the
+\code{\link[=as_CF]{as_CF()}} function.
 
 \emph{\strong{S3 methods for CFVariable}}
 \itemize{
@@ -171,16 +190,15 @@ Methods for \code{CFAxis} instances:
 \item \code{show()}, \code{brief()}, and \code{shard()}: Print to the console or return to the
 caller (increasingly more compact) information on an axis.
 \item \code{name}, \code{id}: Basic properties of the axis.
-\item \code{coordinates}: Get a vector of coordinate values of the axis.
 }
 
 \emph{\strong{Extraction}}
 \itemize{
 \item \code{indexOf()}: Retrieve the sub-range of the axis that encompasses the
 physical values passed.
-\item \code{subset}: Create a new \code{CFAxis} instance that spans a sub-range of the
+\item \code{subset()}: Create a new \code{CFAxis} instance that spans a sub-range of the
 axis.
-\item \code{time()}: Retrieve the \code{CFTime} instance of the axis.
+\item \code{time}: Retrieve the \code{CFTime} instance of the axis.
 }
 
 \emph{\strong{Coordinates}}
@@ -194,48 +212,12 @@ either an instance of \link{CFLabel} or an \link{CFAxis} descendant.
 \item \code{coordinates}: Retrieve the coordinates of the active coordinate set. This may
 be the coordinate values of the axis (say, longitude values) or a set of
 auxiliary coordinates associated with the axis.
+\item \code{coordinate_range}: A vector with the extreme coordinate values of the axis.
 }
 
 \emph{\strong{S3 methods for CFAxis}}
 \itemize{
 \item \code{\link[=dim]{dim()}}, \code{\link[=dimnames]{dimnames()}}: The length and coordinate values of the axis.
-}
-
-\strong{Data}
-
-The \code{CFVariable::data()} and \code{CFVariable::subset()} methods return a
-\link{CFArray} object to the caller. The \code{CFArray} object contains the data from
-the netCDF resource, as well as important metadata from the data variable:
-axes, CRS and attributes. The data is easily accessed as a raw array, or
-processed to some other format.
-
-\emph{\strong{Properties}}
-\itemize{
-\item \code{show()}: Print information about the data object to the console, including
-axes, the CRS and its attributes.
-\item \code{axes()}: List of \code{CFAxis} objects representing the axes that the data
-object uses.
-\item \code{crs}: A WKT2-formatted string of the CRS of the data object.
-}
-
-\emph{\strong{Data extraction}}
-\itemize{
-\item \code{raw()}: The array of data values from the data object as read from the
-netCDF resource.
-\item \code{array()}: The array of data values from the data object, oriented in the
-standard R arrangement.
-\item \code{summarise()}: Summarise the data in the data array over the "time"
-axis, using a user-defined function, returning a new \code{CFArray} object. The
-function can be built-in (such as \code{min()} and \code{max()}) or a user-developed
-function. The function may also return a vector with multiple values (such as
-\code{range()}) and then a list of \code{CFArray} objects is returned, one for each
-result of the function.
-\item \code{terra()}: (requires the \code{terra} package) The data values from the data
-object as a \code{terra::SpatRaster} (2 or 3 dimensions) or
-\code{terra::SpatRasterDataset} (4 dimensions), with all relevant properties set.
-\item \code{data.table()}: (requires the \code{data.table} package) The data values from
-the data object as a \code{data.table} where every row consists of the permutation
-of the axis values and a final data value.
 }
 }
 \seealso{

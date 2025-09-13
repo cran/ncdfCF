@@ -13,7 +13,8 @@ group.
 Direct access to groups is usually not necessary. The principal objects
 held by the group, CF data variables and axes, are accessible via other
 means. Only for access to the group attributes is a reference to a group
-required.
+required. Changing the properties of a group other than its name may very
+well invalidate the CF objects or even the netCDF file.
 }
 \section{Super class}{
 \code{\link[ncdfCF:NCObject]{ncdfCF::NCObject}} -> \code{NCGroup}
@@ -22,9 +23,9 @@ required.
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{resource}}{Access to the underlying netCDF resource. This can be
-\code{NULL} for instances created in memory.}
-
-\item{\code{fullname}}{The fully qualified absolute path of the group.}
+\code{NULL} for instances created in memory. Managed internally. Never
+change the \code{resource} as it will very likely lead to problems reading
+from and writing to file.}
 
 \item{\code{parent}}{Parent group of this group, the owning \code{CFDataset} for the
 root group.}
@@ -70,10 +71,18 @@ references them.}
 \item{\code{handle}}{(read-only) Get the handle to the netCDF resource for the
 group}
 
+\item{\code{name}}{Set or retrieve the name of the group. Note that the name is
+always relative to the location in the hierarchy that the group is in
+and it should thus not be qualified by backslashes. The name has to be
+a valid CF name. The name of the root group cannot be changed.}
+
+\item{\code{fullname}}{(read-only) The fully qualified absolute path of the group.}
+
 \item{\code{root}}{(read-only) Retrieve the root group.}
 
 \item{\code{data_set}}{(read-only) Retrieve the \link{CFDataset} that the group
-belongs to.}
+belongs to. If the group is not attached to a \code{CFDataset}, returns
+\code{NULL}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -87,7 +96,8 @@ belongs to.}
 \item \href{#method-NCGroup-find_dim_by_id}{\code{NCGroup$find_dim_by_id()}}
 \item \href{#method-NCGroup-has_name}{\code{NCGroup$has_name()}}
 \item \href{#method-NCGroup-unused}{\code{NCGroup$unused()}}
-\item \href{#method-NCGroup-addAuxiliaryLongLat}{\code{NCGroup$addAuxiliaryLongLat()}}
+\item \href{#method-NCGroup-add_auxiliary_coordinate}{\code{NCGroup$add_auxiliary_coordinate()}}
+\item \href{#method-NCGroup-add_auxiliary_longlat}{\code{NCGroup$add_auxiliary_longlat()}}
 \item \href{#method-NCGroup-addCellMeasure}{\code{NCGroup$addCellMeasure()}}
 \item \href{#method-NCGroup-fullnames}{\code{NCGroup$fullnames()}}
 \item \href{#method-NCGroup-dimensions}{\code{NCGroup$dimensions()}}
@@ -98,14 +108,10 @@ belongs to.}
 }
 }
 \if{html}{\out{
-<details><summary>Inherited methods</summary>
+<details open><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="add_coordinates"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-add_coordinates'><code>ncdfCF::NCObject$add_coordinates()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="append_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-append_attribute'><code>ncdfCF::NCObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-attribute'><code>ncdfCF::NCObject$attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="delete_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-delete_attribute'><code>ncdfCF::NCObject$delete_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="print_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-print_attributes'><code>ncdfCF::NCObject$print_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="set_attribute"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-set_attribute'><code>ncdfCF::NCObject$set_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="NCObject" data-id="write_attributes"><a href='../../ncdfCF/html/NCObject.html#method-NCObject-write_attributes'><code>ncdfCF::NCObject$write_attributes()</code></a></span></li>
 </ul>
 </details>
@@ -116,7 +122,7 @@ belongs to.}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCGroup$new(id, name, fullname, parent, resource)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NCGroup$new(id, name, attributes = data.frame(), parent, resource)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -126,7 +132,7 @@ Create a new instance of this class.
 
 \item{\code{name}}{The name of the group.}
 
-\item{\code{fullname}}{The fully qualified name of the group.}
+\item{\code{attributes}}{Optional, a \code{data.frame} with group attributes.}
 
 \item{\code{parent}}{The parent group of this group. the owning \link{CFDataset} for
 the root group.}
@@ -272,22 +278,43 @@ List of \link{NCVariable}.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-NCGroup-addAuxiliaryLongLat"></a>}}
-\if{latex}{\out{\hypertarget{method-NCGroup-addAuxiliaryLongLat}{}}}
-\subsection{Method \code{addAuxiliaryLongLat()}}{
-Add an auxiliary long-lat variable to the group. This method
-creates a \link{CFAuxiliaryLongLat} from the arguments and adds it to the
-group \code{CFlonglat} list, but only if the combination of \code{lon}, \code{lat} isn't
-already present.
+\if{html}{\out{<a id="method-NCGroup-add_auxiliary_coordinate"></a>}}
+\if{latex}{\out{\hypertarget{method-NCGroup-add_auxiliary_coordinate}{}}}
+\subsection{Method \code{add_auxiliary_coordinate()}}{
+Add an auxiliary coordinate variable to the group. This
+method adds the passed auxiliary coordinate to the group \code{CFaux} list.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCGroup$addAuxiliaryLongLat(lon, lat, bndsLong, bndsLat)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NCGroup$add_auxiliary_coordinate(aux)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{lon, lat}}{Instances of \link{NCVariable} having a two-dimensional grid of
-longitude and latitude values, respectively.}
+\item{\code{aux}}{Instance of \link{CFLabel} or \link{CFAxis}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{self} invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-NCGroup-add_auxiliary_longlat"></a>}}
+\if{latex}{\out{\hypertarget{method-NCGroup-add_auxiliary_longlat}{}}}
+\subsection{Method \code{add_auxiliary_longlat()}}{
+Add an auxiliary long-lat variable to the group. This method
+creates a \link{CFAuxiliaryLongLat} from the arguments and adds it to the
+group \code{CFlonglat} list, but only if the combination of \code{lon}, \code{lat}
+isn't already present.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{NCGroup$add_auxiliary_longlat(lon, lat, bndsLong, bndsLat)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{lon, lat}}{Instances of \link{CFVariable}, each having a two-dimensional
+grid of longitude and latitude values.}
 
 \item{\code{bndsLong, bndsLat}}{Instances of \link{CFBounds} with the 2D bounds of the
 longitude and latitude grid values, respectively, or \code{NULL} when not
@@ -345,13 +372,23 @@ A character vector with group names.
 \if{html}{\out{<a id="method-NCGroup-dimensions"></a>}}
 \if{latex}{\out{\hypertarget{method-NCGroup-dimensions}{}}}
 \subsection{Method \code{dimensions()}}{
-List all the dimensions that are visible from this group
-including those that are defined in parent groups (by names not defined
-by any of their child groups in direct lineage to the current group).
+List all the dimensions that are visible from this group,
+possibly including those that are defined in parent groups (by names
+not defined by any of their child groups in direct lineage to the
+current group).
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{NCGroup$dimensions()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{NCGroup$dimensions(scope = "all")}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{scope}}{Character string that indicates if only dimensions in the
+current group should be reported (\code{local}) or visible dimensions in
+parent groups as well (\code{all}, default).}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
 A vector of \link{NCDimension} objects.
 }

@@ -8,18 +8,23 @@
 #'   Direct access to groups is usually not necessary. The principal objects
 #'   held by the group, CF data variables and axes, are accessible via other
 #'   means. Only for access to the group attributes is a reference to a group
-#'   required.
+#'   required. Changing the properties of a group other than its name may very
+#'   well invalidate the CF objects or even the netCDF file.
 #'
 #' @docType class
 NCGroup <- R6::R6Class("NCGroup",
   inherit = NCObject,
+  private = list(
+    # The name of the group. Groups manage their own names because they are not
+    # compliant with CF rules when starting with a backslash.
+    nm = ""
+  ),
   public = list(
     #' @field resource Access to the underlying netCDF resource. This can be
-    #' `NULL` for instances created in memory.
+    #'   `NULL` for instances created in memory. Managed internally. Never
+    #'   change the `resource` as it will very likely lead to problems reading
+    #'   from and writing to file.
     resource  = NULL,
-
-    #' @field fullname The fully qualified absolute path of the group.
-    fullname  = "",
 
     #' @field parent Parent group of this group, the owning `CFDataset` for the
     #'   root group.
@@ -69,14 +74,14 @@ NCGroup <- R6::R6Class("NCGroup",
     #' @description Create a new instance of this class.
     #' @param id The identifier of the group.
     #' @param name The name of the group.
-    #' @param fullname The fully qualified name of the group.
+    #' @param attributes Optional, a `data.frame` with group attributes.
     #' @param parent The parent group of this group. the owning [CFDataset] for
     #'   the root group.
     #' @param resource Reference to the [CFResource] instance that provides
     #'   access to the netCDF resource. For in-memory groups this can be `NULL`.
-    initialize = function(id, name, fullname, parent, resource) {
-      super$initialize(id, name)
-      self$fullname <- fullname
+    initialize = function(id, name, attributes = data.frame(), parent, resource) {
+      super$initialize(id, "group", attributes)
+      private$nm <- name
       self$parent <- parent
       self$resource <- resource
     },
@@ -87,8 +92,8 @@ NCGroup <- R6::R6Class("NCGroup",
     #' of an enclosing object (`FALSE`).
     #' @param ... Passed on to other methods.
     print = function(stand_alone = TRUE, ...) {
-      if (stand_alone || self$name != "/") {
-        cat("<", self$friendlyClassName, "> [", self$id, "] ", self$name, "\n", sep = "")
+      if (stand_alone || private$nm != "/") {
+        cat("<", self$friendlyClassName, "> [", self$id, "] ", private$nm, "\n", sep = "")
         cat("Path      :", self$fullname, "\n")
       }
       if (length(self$subgroups) > 0L)
@@ -105,7 +110,7 @@ NCGroup <- R6::R6Class("NCGroup",
     #'   recursion when there are groups below the current group.
     hierarchy = function(idx = 1L, total = 1L) {
       if (idx == total) sep <- "   " else sep <- "|  "
-      hier <- paste0("* ", self$name, "\n")
+      hier <- paste0("* ", private$nm, "\n")
 
       # Axes
       if (length(self$CFaxes) > 0L) {
@@ -116,7 +121,7 @@ NCGroup <- R6::R6Class("NCGroup",
       # Variables
       if (length(self$CFvars) > 0L) {
         vars <- lapply(self$CFvars, function(v) v$shard())
-        vars <- unlist(vars[lengths(vars) > 0])
+        vars <- unlist(vars[lengths(vars) > 0], use.names = FALSE)
         v <- paste(vars, collapse = ", ")
         hier <- c(hier, paste0(sep, "Variables: ", v, "\n"))
       }
@@ -124,7 +129,7 @@ NCGroup <- R6::R6Class("NCGroup",
       # Subgroups
       subs <- length(self$subgroups)
       if (subs > 0L) {
-        sg <- unlist(sapply(1L:subs, function(g) self$subgroups[[g]]$hierarchy(g, subs)))
+        sg <- unlist(sapply(1L:subs, function(g) self$subgroups[[g]]$hierarchy(g, subs)), use.names = FALSE)
         hier <- c(hier, paste0(sep, sg))
       }
       hier
@@ -285,29 +290,41 @@ NCGroup <- R6::R6Class("NCGroup",
       # Descend into subgroups
       if (length(self$subgroups)) {
         subvars <- lapply(self$subgroups, function(g) g$unused())
-        vars <- append(vars, unlist(subvars))
+        vars <- append(vars, unlist(subvars, use.names = FALSE))
       }
 
       vars
     },
 
+    #' @description Add an auxiliary coordinate variable to the group. This
+    #'   method adds the passed auxiliary coordinate to the group `CFaux` list.
+    #' @param aux Instance of [CFLabel] or [CFAxis].
+    #' @return `self` invisibly.
+    add_auxiliary_coordinate = function(aux) {
+      if (!length(self$CFaux)) {
+        self$CFaux <- setNames(list(aux), aux$name)
+      } else {
+        self$CFaux[[aux$name]] <- aux
+      }
+      invisible(self)
+    },
+
     #' @description Add an auxiliary long-lat variable to the group. This method
     #'   creates a [CFAuxiliaryLongLat] from the arguments and adds it to the
-    #'   group `CFlonglat` list, but only if the combination of `lon`, `lat` isn't
-    #'   already present.
-    #' @param lon,lat Instances of [NCVariable] having a two-dimensional grid of
-    #'   longitude and latitude values, respectively.
+    #'   group `CFlonglat` list, but only if the combination of `lon`, `lat`
+    #'   isn't already present.
+    #' @param lon,lat Instances of [CFVariable], each having a two-dimensional
+    #'   grid of longitude and latitude values.
     #' @param bndsLong,bndsLat Instances of [CFBounds] with the 2D bounds of the
     #'   longitude and latitude grid values, respectively, or `NULL` when not
     #'   set.
     #' @return `self` invisibly.
-    addAuxiliaryLongLat = function(lon, lat, bndsLong, bndsLat) {
+    add_auxiliary_longlat = function(lon, lat, bndsLong, bndsLat) {
       nm <- paste(lon$name, lat$name, sep = "_")
       if (!length(self$CFlonglat)) {
-        self$CFlonglat <- list(CFAuxiliaryLongLat$new(lon, lat, bndsLong, bndsLat))
-        names(self$CFlonglat) <- nm
+        self$CFlonglat <- setNames(list(CFAuxiliaryLongLat$new(lon, lat, bndsLong, bndsLat)), nm)
       } else {
-        known <- lapply(self$CFlonglat, function(a) c(a$varLong$id, a$varLat$id))
+        known <- lapply(self$CFlonglat, function(a) c(a$lon$id, a$lat$id))
         if (!any(sapply(known, function(k) k[1L] == lon$id && k[2L] == lat$id)))
           self$CFlonglat[[nm]] <- CFAuxiliaryLongLat$new(lon, lat, bndsLong, bndsLat)
       }
@@ -336,13 +353,19 @@ NCGroup <- R6::R6Class("NCGroup",
       else self$fullname
     },
 
-    #' @description List all the dimensions that are visible from this group
-    #' including those that are defined in parent groups (by names not defined
-    #' by any of their child groups in direct lineage to the current group).
+    #' @description List all the dimensions that are visible from this group,
+    #'   possibly including those that are defined in parent groups (by names
+    #'   not defined by any of their child groups in direct lineage to the
+    #'   current group).
+    #' @param scope Character string that indicates if only dimensions in the
+    #'   current group should be reported (`local`) or visible dimensions in
+    #'   parent groups as well (`all`, default).
     #' @return A vector of [NCDimension] objects.
-    dimensions = function() {
+    dimensions = function(scope = "all") {
       dims <- self$NCdims
-      if (self$name == "/")
+      if (scope == "local") return(dims)
+
+      if (private$nm == "/")
         dims
       else {
         pdims <- self$parent$dimensions()
@@ -365,7 +388,7 @@ NCGroup <- R6::R6Class("NCGroup",
     #' @return A list of [CFVariable].
     variables = function(recursive = TRUE) {
       if (recursive && length(self$subgroups))
-        c(self$CFvars, unlist(lapply(self$subgroups, function(g) g$variables(recursive))))
+        c(self$CFvars, unlist(lapply(self$subgroups, function(g) g$variables(recursive)), use.names = FALSE))
       else self$CFvars
     },
 
@@ -380,7 +403,7 @@ NCGroup <- R6::R6Class("NCGroup",
       if (recursive && length(self$subgroups))
         subaxes <- lapply(self$subgroups, function(g) g$axes(recursive))
       else subaxes <- list()
-      c(self$CFaxes, unlist(subaxes))
+      c(self$CFaxes, unlist(subaxes, use.names = FALSE))
     },
 
     #' @description This method lists the grid mappings located in this group,
@@ -394,7 +417,7 @@ NCGroup <- R6::R6Class("NCGroup",
       if (recursive && length(self$subgroups))
         subgm <- lapply(self$subgroups, function(g) g$grid_mappings(recursive))
       else subgm <- list()
-      c(self$CFcrs, unlist(subgm))
+      c(self$CFcrs, unlist(subgm, use.names = FALSE))
     }
   ),
   active = list(
@@ -414,6 +437,34 @@ NCGroup <- R6::R6Class("NCGroup",
         stop("Can't assign a value to a netCDF resource handle", call. = FALSE)
     },
 
+    #' @field name Set or retrieve the name of the group. Note that the name is
+    #'   always relative to the location in the hierarchy that the group is in
+    #'   and it should thus not be qualified by backslashes. The name has to be
+    #'   a valid CF name. The name of the root group cannot be changed.
+    name = function(value) {
+      if (missing(value))
+        private$nm
+      else if (private$nm == "/")
+        stop("Cannot change the name of the root group", call. = FALSE)
+      else if (.is_valid_name(value)) {
+        private$nm <- value
+      }
+    },
+
+    #' @field fullname (read-only) The fully qualified absolute path of the group.
+    fullname = function(value) {
+      if (missing(value)) {
+        nm <- private$nm
+        if (nm == "/") return(nm)
+        g <- self
+        while (g$parent$name != "/") {
+          g <- g$parent
+          nm <- paste(g$name, nm, sep = "/")
+        }
+      }
+      if (nm != "/") paste0("/", nm) else nm
+    },
+
     #' @field root (read-only) Retrieve the root group.
     root = function(value) {
       if (missing(value)) {
@@ -424,7 +475,8 @@ NCGroup <- R6::R6Class("NCGroup",
     },
 
     #' @field data_set (read-only) Retrieve the [CFDataset] that the group
-    #' belongs to.
+    #'   belongs to. If the group is not attached to a `CFDataset`, returns
+    #'   `NULL`.
     data_set = function(value) {
       if (missing(value)) {
         g <- self

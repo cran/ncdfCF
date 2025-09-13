@@ -28,28 +28,33 @@ vector, or labels for every axis element if they have been set.}
 \item \href{#method-CFAxisDiscrete-new}{\code{CFAxisDiscrete$new()}}
 \item \href{#method-CFAxisDiscrete-print}{\code{CFAxisDiscrete$print()}}
 \item \href{#method-CFAxisDiscrete-brief}{\code{CFAxisDiscrete$brief()}}
-\item \href{#method-CFAxisDiscrete-append}{\code{CFAxisDiscrete$append()}}
+\item \href{#method-CFAxisDiscrete-copy}{\code{CFAxisDiscrete$copy()}}
 \item \href{#method-CFAxisDiscrete-indexOf}{\code{CFAxisDiscrete$indexOf()}}
+\item \href{#method-CFAxisDiscrete-slice}{\code{CFAxisDiscrete$slice()}}
 \item \href{#method-CFAxisDiscrete-subset}{\code{CFAxisDiscrete$subset()}}
+\item \href{#method-CFAxisDiscrete-append}{\code{CFAxisDiscrete$append()}}
 \item \href{#method-CFAxisDiscrete-write}{\code{CFAxisDiscrete$write()}}
-\item \href{#method-CFAxisDiscrete-clone}{\code{CFAxisDiscrete$clone()}}
 }
 }
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="configure_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-configure_terms'><code>ncdfCF::CFAxis$configure_terms()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="copy_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-copy_terms'><code>ncdfCF::CFAxis$copy_terms()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="copy_with_values"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-copy_with_values'><code>ncdfCF::CFAxis$copy_with_values()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="detach"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-detach'><code>ncdfCF::CFAxis$detach()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="identical"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-identical'><code>ncdfCF::CFAxis$identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="peek"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-peek'><code>ncdfCF::CFAxis$peek()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="shard"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-shard'><code>ncdfCF::CFAxis$shard()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="time"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-time'><code>ncdfCF::CFAxis$time()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -57,26 +62,27 @@ vector, or labels for every axis element if they have been set.}
 \if{html}{\out{<a id="method-CFAxisDiscrete-new"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-new}{}}}
 \subsection{Method \code{new()}}{
-Create a new instance of this class.
+Create a new instance of this class. The values of this axis
+are always a sequence, but the sequence may start with any positive
+value such that the length of this instance falls within the length of
+the axis on file, if there is one.
 
 Creating a new discrete axis is more easily done with the
 \code{\link[=makeDiscreteAxis]{makeDiscreteAxis()}} function.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(nc_var, nc_dim, orientation, dim_only = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$new(var, start = 1L, count)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{nc_var}}{The netCDF variable that describes this instance.}
+\item{\code{var}}{The name of the axis when creating a new axis. When reading an
+axis from file, the \link{NCVariable} object that describes this instance.}
 
-\item{\code{nc_dim}}{The netCDF dimension that describes the dimensionality.}
+\item{\code{start}}{Optional. Integer value that indicates the starting value of
+this axis. Defults to \code{1L}.}
 
-\item{\code{orientation}}{The orientation (\code{X}, \code{Y}, \code{Z}, or \code{T}) or \code{""} if
-different or unknown.}
-
-\item{\code{dim_only}}{Flag if this axis only has a dimension on file but no
-NC variable.}
+\item{\code{count}}{Number of elements in the axis.}
 }
 \if{html}{\out{</div>}}
 }
@@ -116,28 +122,26 @@ A 1-row \code{data.frame} with some details of the axis.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxisDiscrete-append"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-append}{}}}
-\subsection{Method \code{append()}}{
-Append a vector of values at the end of the current values
-of the axis. In a discrete axis the values are always a simple sequence
-so the appended values extend the sequence, rather than using the
-values from axis \code{from}.
+\if{html}{\out{<a id="method-CFAxisDiscrete-copy"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-copy}{}}}
+\subsection{Method \code{copy()}}{
+Create a copy of this axis. The copy is completely separate
+from this axis, meaning that both this axis and all of its components
+are made from new instances.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$append(from)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$copy(name = "")}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{from}}{An instance of \code{CFAxisDiscrete} whose length to add to the
-length of \code{self}.}
+\item{\code{name}}{The name for the new axis. If an empty string is passed, will
+use the name of this axis.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A new \code{CFAxisDiscrete} with the combined length of \code{self} and the
-\code{from} axis.
+The newly created axis.
 }
 }
 \if{html}{\out{<hr>}}
@@ -145,9 +149,8 @@ A new \code{CFAxisDiscrete} with the combined length of \code{self} and the
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-indexOf}{}}}
 \subsection{Method \code{indexOf()}}{
 Find indices in the axis domain. Given a vector of numerical
-values \code{x}, find their indices in the values of the axis. In effect,
-this returns index values into the axis, but outside values will be
-dropped.
+values \code{x}, find their indices in the values of the axis. Outside
+values will be dropped.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$indexOf(x, method = "constant", rightmost.closed = TRUE)}\if{html}{\out{</div>}}
 }
@@ -169,6 +172,34 @@ of the range of the values in the axis are returned as \code{NA}.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-slice"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-slice}{}}}
+\subsection{Method \code{slice()}}{
+Given a range of coordinate values, returns the indices into
+the axis that fall within the supplied range. If the axis has auxiliary
+coordinates selected then these will be used for the identification of
+the indices to return.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$slice(rng)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{rng}}{A vector whose extreme values indicate the indices of
+coordinates to return. The mode of the vector has to be integer or
+agree with any auxiliary coordinates selected.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+An integer vector of length 2 with the lower and higher indices
+into the axis that fall within the range of coordinates in argument
+\code{rng}. Returns \code{NULL} if no (boundary) values of the axis fall within
+the range of coordinates.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAxisDiscrete-subset"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisDiscrete-subset}{}}}
 \subsection{Method \code{subset()}}{
@@ -176,23 +207,48 @@ Return an axis spanning a smaller coordinate range. This
 method returns an axis which spans the range of indices given by the
 \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$subset(group, rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$subset(name = "", rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{group}}{The group to create the new axis in.}
+\item{\code{name}}{The name for the new axis. If an empty string is passed, will
+use the name of this axis.}
 
-\item{\code{rng}}{The range of indices from this axis to include in the returned
+\item{\code{rng}}{The range of indices whose values from this axis to include in
+the returned axis. If the value of the argument is \code{NULL}, return a
+copy of the axis.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{CFAxisDiscrete} instance covering the indicated range of
+indices. If the value of the argument is \code{NULL}, return a copy of
+\code{self} as the new axis.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisDiscrete-append"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-append}{}}}
+\subsection{Method \code{append()}}{
+Append a vector of values at the end of the current values
+of the axis.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$append(from)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{from}}{An instance of \code{CFAxisDiscrete} whose length to add to this
 axis.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{CFAxisDiscrete} instance covering the indicated range of
-indices. If the value of the argument is \code{NULL}, return the entire
-axis.
+A new \code{CFAxisDiscrete} instance with a length that is the sum of
+the lengths of this axis and the \code{from} axis.
 }
 }
 \if{html}{\out{<hr>}}
@@ -217,23 +273,6 @@ was read from (the file must have been opened for writing). If not
 }
 \subsection{Returns}{
 Self, invisibly.
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxisDiscrete-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxisDiscrete-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisDiscrete$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
 }
 }
 }

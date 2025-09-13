@@ -16,12 +16,16 @@ CRS_names <- c("albers_conical_equal_area", "azimuthal_equidistant",
 #' string in WKT2 format is returned, following the OGC standard.
 #'
 #' @references https://docs.ogc.org/is/18-010r11/18-010r11.pdf
+#' https://cfconventions.org/cf-conventions/cf-conventions.html#appendix-grid-mappings
 #'
 #' @docType class
 #' @export
 CFGridMapping <- R6::R6Class("CFGridMapping",
   inherit = CFObject,
   private = list(
+    # The formal grid mapping name as defined in CF
+    .grid_mapping_name = "latitude_longitude",
+
     # === CF grid_mapping_name METHOD & PARAMETER rendering ====================
     aea = function(angle, length) {
       # The x (abscissa) and y (ordinate) rectangular coordinates are identified by the standard_name
@@ -395,7 +399,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
 
     # This method creates an UOM WKT2 string from a specified UOM name. This is
     # typically called to describe the UOM of CFVariable axes for the CS section
-    # of a full WKT2 string for a CFVariable or CFArray instance.
+    # of a full WKT2 string for a CFVariable instance.
     # Known aliases (by the EPSG database) are interpreted correctly, with the
     # resulting WKT2 string using the default name of the UOM. If no alias is
     # found, the method returns an empty string, otherwise the WKT2 string.
@@ -546,7 +550,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
         details <- epsg_geo_crs[epsg_geo_crs$coord_ref_sys_name == name, ]
         if (!nrow(details)) return('')
         if (nrow(details) > 1L) {
-          if (self$grid_mapping_name == "latitude_longitude")
+          if (private$.grid_mapping_name == "latitude_longitude")
             details <- details[details$coord_ref_sys_kind == "geographic 2D", ]
           else return('')
         }
@@ -597,26 +601,40 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
       .wkt2_crs_compound(epsg_code)
     }
   ),
-
   public = list(
-    #' @field grid_mapping_name The name of the grid mapping.
-    grid_mapping_name = "",
-
     #' @description Create a new instance of this class.
-    #' @param nc_var The netCDF variable that describes this instance.
-    #' @param name The formal grid mapping name from the attribute.
-    initialize = function(nc_var, name) {
-      if(!(name %in% CRS_names))
-        stop("Unsupported grid mapping: ", name)
-      super$initialize(nc_var)
-      self$grid_mapping_name <- name
-      nc_var$CF <- self
+    #'
+    #'   Note that when a new grid mapping object is created (as opposed to
+    #'   reading from a netCDF resource), only the `grid_mapping_name` attribute
+    #'   will be set. The caller must set all other parameters through their
+    #'   respective attributes, following the CF Metadata Conventions.
+    #' @param var When creating a new grid mapping object, the name of the
+    #'   object. When reading from a netCDF resource, the netCDF variable that
+    #'   describes this instance.
+    #' @param grid_mapping_name Optional. When creating a new grid mapping
+    #'   object, the formal name of the grid mapping, as specified in the CF
+    #'   Metadata Conventions. This value is stored in the new object as
+    #'   attribute "grid_mapping_name". Ignored when argument `var` is a NC
+    #'   object.
+    initialize = function(var, grid_mapping_name) {
+      super$initialize(var)
+
+      if (is.character(var)) {
+        if (missing(grid_mapping_name))
+          stop("Must provide the `grid_mapping_name` argument when creating a new grid mapping object.", call. = FALSE) # nocov
+        grid_mapping_name <- grid_mapping_name[1L]
+        if (!(grid_mapping_name %in% CRS_names))
+          stop("Unrecognized grid mapping name.", call. = FALSE) # nocov
+        private$.grid_mapping_name <- grid_mapping_name
+        self$set_attribute("grid_mapping_name", "NC_CHAR", grid_mapping_name)
+      } else
+        private$.grid_mapping_name <- self$attribute("grid_mapping_name")
     },
 
     #' @description Prints a summary of the grid mapping to the console.
     print = function() {
       cat("<Grid mapping>", self$name, "\n")
-      cat("Grid mapping name:", self$grid_mapping_name, "\n")
+      cat("Grid mapping name:", private$.grid_mapping_name, "\n")
       if (self$group$name != "/")
         cat("Group            :", self$group$name, "\n")
 
@@ -626,12 +644,12 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
     #' @description Retrieve a 1-row `data.frame` with some information on this
     #'   grid mapping.
     brief = function() {
-      data.frame(name = self$name, grid_mapping = self$grid_mapping_name)
+      data.frame(name = self$fullname, grid_mapping = private$.grid_mapping_name)
     },
 
     #' @description Retrieve the CRS string for a specific variable.
     #' @param axis_info A list with information that describes the axes of the
-    #' `CFVariable` or `CFArray` instance to describe.
+    #' `CFVariable` instance to describe.
     #' @return A character string with the CRS in WKT2 format.
     wkt2 = function(axis_info) {
       crs_attr <- self$attribute("crs_wkt")
@@ -654,7 +672,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
       datum <- private$datum_geo()
       angle <- .wkt2_uom(datum$ANGLEUNIT)
 
-      if (self$grid_mapping_name == "latitude_longitude")
+      if (private$.grid_mapping_name == "latitude_longitude")
         return(paste0('GEOGCRS["', geocrs_name, '",', datum$WKT2,
                       ',CS[ellipsoidal,2],AXIS["north (Lat)",north,ORDER[1],',
                       angle, '],AXIS["east (Lon)",east,ORDER[2],', angle, ']]'))
@@ -675,7 +693,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
 
       # Coordinate operation method
       wkt <- paste0(wkt,
-             switch(self$grid_mapping_name,
+             switch(private$.grid_mapping_name,
                "albers_conical_equal_area" = private$aea(angle, length),
                "azimuthal_equidistant" = private$aeqd(angle, length),
                "geostationary" = private$geos(),
@@ -711,7 +729,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
     #' @param h Handle to the netCDF file opened for writing.
     #' @return Self, invisibly.
     write = function(h) {
-      RNetCDF::var.def.nc(h, self$name, "NC_CHAR", NA)
+      self$id <- RNetCDF::var.def.nc(h, self$name, "NC_CHAR", NA)
       self$write_attributes(h, self$name)
       invisible(self)
     }
@@ -729,7 +747,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
 # ==============================================================================
 # Helper function
 
-# Return the axis information from a CFVariable or CFArray object to construct a
+# Return the axis information from a `CFVariable` object to construct a
 # WKT2 string of the CRS of this variable. Returns a list with relevant
 # information. In the EPSG database, X and Y UOMs are always the same. Hence
 # only one UOM is reported back. Furthermore, axis order is considered important
@@ -737,7 +755,7 @@ CFGridMapping <- R6::R6Class("CFGridMapping",
 # transformation engine, something this package is not concerned with.
 # Consequently, axis order is always reported as the standard X,Y. R packages
 # like terra and stars deal with the idiosyncracies of R arrays. This has been
-# tested with the results of [CFArray] functions. This function may be extended
+# tested with the results of [CFVariable] functions. This function may be extended
 # in the future to inject more intelligence into the WKT2 strings produced.
 # Currently it just returns the "units" string of the X axis (the Y axis has the
 # same unit), and the Z axis, if present, in a list.

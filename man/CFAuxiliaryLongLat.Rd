@@ -9,36 +9,15 @@ This class represents the longitude and latitude variables that
 compose auxiliary coordinate variable axes for X-Y grids that are not
 longitude-latitude.
 
-The class provides access to the data arrays for longitude and
-latitude from the netCDF resource, as well as all the details that have been
+The class provides access to the data arrays for longitude and latitude
+from the netCDF resource, as well as all the details that have been
 associated with both axes. Additionally, this class can generate the index
-to extract values on a long-lat grid of the associated X-Y grid data variable
-using a user-selectable extent and resolution.
+to extract values on a long-lat grid of the associated X-Y grid data
+variable using a user-selectable extent and resolution.
 
 Auxiliary longitude-latitude grids are only supported for reading from a
-netCDF resource. Creating an instance manually therefore has no practical
-purpose.
-}
-\section{Super class}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFAuxiliaryLongLat}
-}
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{varLong}}{The \link{NCVariable} instance of the longitude values.}
-
-\item{\code{varLat}}{The \link{NCVariable} instance of the latitude values.}
-
-\item{\code{boundsLong}}{The \link{CFBounds} instance for the longitude values of the
-grid.}
-
-\item{\code{boundsLat}}{The \link{CFBounds} instance for the latitude values of the
-grid.}
-
-\item{\code{axis_order}}{Either \code{c("X", "Y")} (default) or \code{c("Y", "X")} to
-indicate the orientation of the latitude and longitude grids.}
-}
-\if{html}{\out{</div>}}
+netCDF resource. Creating an instance of this class manually therefore has
+no practical purpose.
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -47,21 +26,31 @@ indicate the orientation of the latitude and longitude grids.}
 
 \item{\code{name}}{(read-only) The name of the auxiliary lon-lat grid.}
 
+\item{\code{grid_names}}{(read-only) Read the names of the longitude and
+latitude grid as a vector of length 2.}
+
+\item{\code{dimids}}{(read-only) Retrieve the dimension ids used by the
+longitude and latitude grids.}
+
 \item{\code{aoi}}{Set or retrieve the AOI for the long-lat grid.}
 
 \item{\code{lon}}{(read-only) Retrieve the longitude grid.}
 
 \item{\code{lat}}{(read-only) Retrieve the latitude grid.}
 
+\item{\code{lon_bounds}}{(read-only) Retrieve the boundary values of the
+longitude grid.}
+
+\item{\code{lat_bounds}}{(read-only) Retrieve the boundary values of the
+latitude grid.}
+
 \item{\code{extent}}{(read-only) Retrieve the extent of the longitude and
 latitude grids, including bounds if they have been set. The extent is
-reported as a numeric vector of the four elements minumum and maximum
+reported as a numeric vector of the four elements minimum and maximum
 longitude and minimum and maximum latitude.}
 
 \item{\code{dim}}{(read-only) The dimensions of the longitude and latitude
 grids.}
-
-\item{\code{dimids}}{(read-only) The dimids of the longitude and latitude grids.}
 }
 \if{html}{\out{</div>}}
 }
@@ -74,22 +63,10 @@ grids.}
 \item \href{#method-CFAuxiliaryLongLat-sample_index}{\code{CFAuxiliaryLongLat$sample_index()}}
 \item \href{#method-CFAuxiliaryLongLat-grid_index}{\code{CFAuxiliaryLongLat$grid_index()}}
 \item \href{#method-CFAuxiliaryLongLat-clear_cache}{\code{CFAuxiliaryLongLat$clear_cache()}}
+\item \href{#method-CFAuxiliaryLongLat-detach}{\code{CFAuxiliaryLongLat$detach()}}
 \item \href{#method-CFAuxiliaryLongLat-clone}{\code{CFAuxiliaryLongLat$clone()}}
 }
 }
-\if{html}{\out{
-<details><summary>Inherited methods</summary>
-<ul>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="add_coordinates"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-add_coordinates'><code>ncdfCF::CFObject$add_coordinates()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
-</ul>
-</details>
-}}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFAuxiliaryLongLat-new"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAuxiliaryLongLat-new}{}}}
@@ -98,17 +75,18 @@ Creating a new instance. It should normally not be useful to
 create an instance of this class other than upon reading a netCDF
 resource.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAuxiliaryLongLat$new(varLong, varLat, boundsLong, boundsLat)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAuxiliaryLongLat$new(varLong, varLat, boundsLong = NULL, boundsLat = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{varLong, varLat}}{The \link{NCVariable} instances with the longitude and
+\item{\code{varLong, varLat}}{The \link{CFVariable} instances with the longitude and
 latitude grid values, respectively.}
 
-\item{\code{boundsLong, boundsLat}}{The bounds of the grid cells for the
-longitude and latitude, respectively, if set.}
+\item{\code{boundsLong, boundsLat}}{The \link{CFBounds} instances of the grid cells
+for the longitude and latitude, respectively, if set. Defaults to
+\code{NULL}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -190,17 +168,22 @@ grids.
 Clears the cache of pre-computed grid index values if an AOI
 has been set.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAuxiliaryLongLat$clear_cache(full = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAuxiliaryLongLat$clear_cache()}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{full}}{Logical (default = \code{FALSE}) that indicates if longitude and
-latitude grid arrays should be cleared as well to save space. These will
-then be re-read from file if a new AOI is set.}
 }
-\if{html}{\out{</div>}}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAuxiliaryLongLat-detach"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAuxiliaryLongLat-detach}{}}}
+\subsection{Method \code{detach()}}{
+Detach the latitude and longitude from an underlying netCDF
+resource.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAuxiliaryLongLat$detach()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}

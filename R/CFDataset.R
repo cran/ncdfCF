@@ -13,22 +13,13 @@
 #' @docType class
 CFDataset <- R6::R6Class("CFDataset",
   private = list(
-    res       = NULL,
-    format    = "classic"
+    .res       = NULL,
+    .format    = "netcdf4"
   ),
   public = list(
     #' @field name The name of the netCDF resource. This is extracted from the
     #'   URI (file name or URL).
     name       = "",
-
-    #' @field keep_open Logical flag to indicate if the netCDF resource has to
-    #'   remain open after reading the metadata. This should be enabled
-    #'   typically only for programmatic access or when a remote resource has an
-    #'   expensive access protocol (i.e. 2FA). The resource has to be explicitly
-    #'   closed with `close()` after use. Note that when a data set is opened
-    #'   with `keep_open = TRUE` the resource may still be closed by the
-    #'   operating system or the remote server.
-    keep_open = FALSE,
 
     #' @field root Root of the group hierarchy through which all elements of the
     #' netCDF resource are accessed. It is **strongly discouraged** to
@@ -45,18 +36,18 @@ CFDataset <- R6::R6Class("CFDataset",
     file_type = "Generic netCDF data",
 
     #' @description Create an instance of this class.
-    #' @param name The name that describes this instance.
     #' @param resource An instance of `CFResource` that links to the netCDF
     #' resource.
-    #' @param keep_open Logical. Should the netCDF resource be kept open for
-    #' further access?
     #' @param format Character string with the format of the netCDF resource as
     #' reported by the call opening the resource.
-    initialize = function(name, resource, keep_open, format) {
-      self$name <- name
-      private$res <- resource
-      self$keep_open <- keep_open
-      private$format <- format
+    initialize = function(resource, format) {
+      uri <- resource$uri
+      self$name <- regmatches(uri, regexec("([^/]*)\\.nc$", uri))[[1L]][2L]
+      if (is.na(self$name))
+        self$name <- regmatches(uri, regexec("([^/]*)$", uri))[[1L]][2L]
+
+      private$.res <- resource
+      private$.format <- format
     },
 
     #' @description Summary of the data set printed to the console.
@@ -64,28 +55,26 @@ CFDataset <- R6::R6Class("CFDataset",
     #' is `width = ` to indicate a maximum width of attribute columns.
     print = function(...) {
       cat("<Dataset>", self$name, "\n")
-      cat("Resource   :", private$res$uri, "\n")
-      cat("Format     :", private$format, "\n")
+      cat("Resource   :", private$.res$uri, "\n")
+      cat("Format     :", private$.format, "\n")
       cat("Collection :", self$file_type, "\n")
       cat("Conventions:", self$conventions, "\n")
-      cat("Keep open  :", self$keep_open, "\n")
 
-      if (private$format == "netcdf4")
+      if (private$.format == "netcdf4")
         cat("Has groups :", self$has_subgroups(), "\n")
 
       nvars <- length(self$root$variables())
       if (nvars) {
         if (nvars == 1L) cat("\nVariable:\n") else cat("\nVariables:\n")
         vars <- do.call(rbind, lapply(self$root$variables(), function(v) v$brief()))
-        if (all(vars$group == "/")) vars$group <- NULL
         if (all(vars$long_name == "")) vars$long_name <- NULL
         if (all(vars$units == "")) vars$units <- NULL
         vars <- as.data.frame(vars[lengths(vars) > 0L])
         print(.slim.data.frame(vars, ...), right = FALSE, row.names = FALSE)
 
-        ev <- self$attribute("external_variables")
-        if (!is.na(ev))
-          cat("\nExternal variable", if (length(ev) > 1L) "s", ": ", ev, "\n", sep = "")
+        ev <- self$root$CFmeasures
+        if (length(ev))
+          cat("\nExternal variable", if (length(ev) > 1L) "s", ": ", paste(names(ev), collapse = ", "), "\n", sep = "")
       }
 
       self$root$print_attributes(...)
@@ -204,13 +193,13 @@ CFDataset <- R6::R6Class("CFDataset",
     #'   resource. This is for internal use only.
     resource = function(value) {
       if (missing(value))
-        private$res
+        private$.res
     },
 
     #' @field uri (read-only) The connection string to the netCDF resource.
     uri = function(value) {
       if (missing(value))
-        private$res$uri
+        private$.res$uri
     },
 
     #' @field conventions (read-only) Returns the conventions that this netCDF
@@ -224,14 +213,20 @@ CFDataset <- R6::R6Class("CFDataset",
 
     #' @field var_names (read-only) Vector of names of variables in this data set.
     var_names = function(value) {
-      if (missing(value))
-        names(self$variables())
+      if (missing(value)) {
+        nm <- sapply(self$variables(), function(v) v$fullname)
+        names(nm) <- NULL
+        nm
+      }
     },
 
     #' @field axis_names (read-only) Vector of names of axes in this data set.
     axis_names = function(value) {
-      if (missing(value))
-        names(self$axes())
+      if (missing(value)) {
+        nms <- sapply(self$axes(), function(ax) ax$fullname)
+        names(nms) <- NULL
+        nms
+      }
     }
   )
 )
@@ -251,13 +246,12 @@ str.CFDataset <- function(object, ...) {
 #' @rdname dimnames
 #' @export
 names.CFDataset <- function(x) {
-  vars <- x$variables()
-  if (!length(vars))
+  if (!length(x$variables()))
     NULL
   else if (x$has_subgroups())
-    paste0("/", gsub(".", "/", names(vars), fixed = TRUE))
+    paste0("/", gsub(".", "/", x$var_names, fixed = TRUE))
   else
-    names(vars)
+    x$var_names
 }
 
 #' @export
@@ -267,9 +261,9 @@ dimnames.CFDataset <- function(x) {
     NULL
   else if (x$has_subgroups()) {
     grps <- sapply(ax, function(z) z$group$fullname)
-    unique(paste0(ifelse(grps == "/", "/", paste0(grps, "/")), names(ax)))
+    unique(paste0(ifelse(grps == "/", "/", paste0(grps, "/")), x$axis_names))
   } else
-    unique(names(ax))
+    unique(x$axis_names)
 }
 
 #' @rdname dimnames
@@ -309,7 +303,7 @@ groups.CFDataset <- function(x) {
 #' @examples
 #' fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 #' ds <- open_ncdf(fn)
-#' v1 <- names(ds)[1]
+#' v1 <- ds$var_names[1]
 #' var <- ds[[v1]]
 #' var
 `[[.CFDataset` <- function(x, i) {

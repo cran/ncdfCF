@@ -4,13 +4,6 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
                        "NC_USHORT", "NC_INT", "NC_UINT", "NC_INT64",
                        "NC_UINT64", "NC_FLOAT", "NC_DOUBLE", "NC_STRING")
 
-# Standard names used for parametric Z axes
-Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
-  "atmosphere_sigma_coordinate", "atmosphere_hybrid_sigma_pressure_coordinate",
-  "atmosphere_hybrid_height_coordinate", "atmosphere_sleve_coordinate",
-  "ocean_sigma_coordinate", "ocean_s_coordinate", "ocean_s_coordinate_g1",
-  "ocean_s_coordinate_g2", "ocean_sigma_z_coordinate", "ocean_double_sigma_coordinate")
-
 # This function is a bare-bones implementation of `apply(X, MARGIN, tapply, INDEX, FUN, ...)`,
 # i.e. apply a factor over a dimension of an array. There are several restrictions
 # compared to the base::apply/tapply pair (but note that function arguments are
@@ -22,7 +15,9 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
 # speed, these restrictions are not tested. Furthermore, no dimnames
 # are set and the result is always simplified to a vector, matrix or array.
 # On the up side, this function always returns a list, with as many elements as
-# FUN returns values.
+# FUN returns values. If oper > 1L, the dimensions of the result are rearranged
+# such that the dimension that is operated on comes first with the others
+# following. This is identical to the tapply output.
 #
 # The basic version without a factor is about 10% faster than the base::apply()
 # function. When used with a factor, this code is twice as fast as apply/tapply.
@@ -113,7 +108,7 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
 #' @return `TRUE` if all `nm` are valid, `FALSE` otherwise.
 #' @noRd
 .is_valid_name <- function(nm) {
-  all(grepl("^[a-zA-Z][a-zA-Z0-9_]{0,254}$", nm))
+  !is.null(nm) && all(grepl("^[a-zA-Z][a-zA-Z0-9_]{0,254}$", nm))
 }
 
 #' Convert regular character strings to valid CF names. Non-permitted characters
@@ -135,9 +130,16 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
 #' Round values `x` with .5 being rounded up.
 #' Adapted from https://stackoverflow.com/a/12688836/3304426
 #' @noRd
-.round <- function(x) {
+.round.5up <- function(x) {
   posneg <- sign(x)
   trunc(abs(x) + 0.5 + CF$eps) * posneg
+}
+
+#' Round values `x` with .5 being rounded down.
+#' @noRd
+.round.5down <- function(x) {
+  posneg <- sign(x)
+  trunc(abs(x) + 0.5 - CF$eps) * posneg
 }
 
 #' Test if vectors `x` and `y` have near-identical values.
@@ -146,30 +148,18 @@ Z_parametric_standard_names <- c("atmosphere_ln_pressure_coordinate",
   abs(x - y) < CF$eps
 }
 
-#' Get the range on the matches. Works on numeric and character data. Returns
-#' NULL if there is no match
+#' Test if vector `x` is monotonic, either increasing or decreasing. Return value
+#' is -1L for monotonic decreasing, 0L for not monotonic, and 1L for monotonic
+#' increasing.
 #' @noRd
-.range_match <- function(rng, match) {
-  res <- range(match(rng, match, nomatch = 0L), na.rm = TRUE)
-  if (all(res == 0L)) NULL
-  else if (res[1L] == 0L) c(res[2L], res[2L])
-  else if (res[2L] == 0L) c(res[1L], res[1L])
-  else res
-}
-
-.cache_dir <- function() {
-  if (as.integer(R.version$major) >= 4)
-    tools::R_user_dir("ncdfCF", "cache")
-  else {
-    if (nzchar(p <- Sys.getenv("R_USER_CACHE_DIR"))) p
-    else if (nzchar(p <- Sys.getenv("XDG_CACHE_HOME"))) p
-    else if (.Platform$OS.type == "windows") file.path(Sys.getenv("LOCALAPPDATA"), "R", "cache")
-    else if (Sys.info()["sysname"] == "Darwin") file.path(normalizePath("~"), "Library", "Caches", "org.R-project.R")
-    else file.path(normalizePath("~"), ".cache")
-  }
+.monotonicity <- function(x) {
+  if (!is.unsorted(x, strictly = TRUE)) 1L
+  else if(!is.unsorted(-x, strictly = TRUE)) -1L
+  else 0L
 }
 
 #' Test if the concatenation of vectors `x` and `y` yields a monotonic result.
+#' This assumes that both `x` and `y` are independently monotonic.
 #' @noRd
 .c_is_monotonic <- function(x, y) {
   xlen <- length(x)
