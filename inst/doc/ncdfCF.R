@@ -29,6 +29,7 @@ ds[["pev"]]$attribute("long_name")
 
 ## ----extract------------------------------------------------------------------
 # Extract a time series for a specific location
+# As can be seen above, the `t2m` data variable has 3 axes
 ts <- t2m[5, 4, ]
 str(ts)
   
@@ -84,5 +85,5 @@ plot(r)
 
 ## ----terra--------------------------------------------------------------------
 (r <- tx$terra())
-plot(r)
+plot(r[[1]])
 

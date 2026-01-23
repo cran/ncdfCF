@@ -10,7 +10,7 @@ This class adds some logic that is specific to latitudes, such as their
 range, orientation and meaning.
 }
 \section{Super classes}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisLatitude}
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisLatitude}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -34,12 +34,13 @@ range, orientation and meaning.
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="attach_to_group"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-attach_to_group'><code>ncdfCF::CFAxis$attach_to_group()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="configure_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-configure_terms'><code>ncdfCF::CFAxis$configure_terms()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="copy_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-copy_terms'><code>ncdfCF::CFAxis$copy_terms()</code></a></span></li>
@@ -67,6 +68,7 @@ Creating a new latitude axis is more easily done with the
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$new(
   var,
+  group,
   values,
   start = 1L,
   count = NA,
@@ -79,6 +81,8 @@ Creating a new latitude axis is more easily done with the
 \describe{
 \item{\code{var}}{The name of the axis when creating a new axis. When reading an
 axis from file, the \link{NCVariable} object that describes this instance.}
+
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
 
 \item{\code{values}}{Optional. The values of the axis in a vector. The values
 have to be numeric within the range (-90, 90) and monotonic. Ignored
@@ -106,7 +110,7 @@ Create a copy of this axis. The copy is completely separate
 from \code{self}, meaning that both \code{self} and all of its components are made
 from new instances.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$copy(name = "")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$copy(name = "", group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -114,6 +118,8 @@ from new instances.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -133,7 +139,7 @@ After this operation the attributes of the newly created axes may not
 be accurate, except for the "actual_range" attribute. The calling code
 should set, modify or delete attributes as appropriate.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$copy_with_values(name = "", values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$copy_with_values(name = "", group, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -141,6 +147,8 @@ should set, modify or delete attributes as appropriate.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{values}}{The values to the used with the copy of this axis.}
 }
@@ -154,11 +162,11 @@ The newly created axis.
 \if{html}{\out{<a id="method-CFAxisLatitude-subset"></a>}}
 \if{latex}{\out{\hypertarget{method-CFAxisLatitude-subset}{}}}
 \subsection{Method \code{subset()}}{
-Return alatitude axis spanning a smaller coordinate range.
+Return a latitude axis spanning a smaller coordinate range.
 This method returns an axis which spans the range of indices given by
 the \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$subset(name = "", rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisLatitude$subset(name = "", group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -166,6 +174,8 @@ the \code{rng} argument.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed
 (default), will use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{rng}}{The range of indices whose values from this axis to include in
 the returned axis. If the value of the argument is \code{NULL}, return a
@@ -196,6 +206,8 @@ resulting axis.
 \describe{
 \item{\code{from}}{An instance of \code{CFAxisLatitude} whose values to append to the
 values of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }

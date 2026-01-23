@@ -65,6 +65,7 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     compute = function() {
       if (is.null(private$.computed_values))
         switch(private$.parameter_name,
+          "atmosphere_hybrid_sigma_pressure_coordinate" = private$atmosphere_hybrid_sigma_pressure_coordinate(),
           "ocean_s_coordinate_g1" = private$ocean_s_coordinate_g1(),
           "ocean_s_coordinate_g2" = private$ocean_s_coordinate_g2()
         )
@@ -72,12 +73,17 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     },
 
     # Helper function to get the data for a specific formula term. Can also
-    # return 0 if the data is not found.
+    # return `NULL` if the data is not found.
     get_data = function(term) {
-      v <- private$.terms[private$.terms$term == term, ]$param[[1L]]
-      if (inherits(v, "CFVerticalParametricTerm"))
-        v$raw()
-      else 0
+      term <- private$.terms[private$.terms$term == term, ]
+      if (nrow(term)) {
+        v <- term$param[[1L]]
+        if (inherits(v, "CFVerticalParametricTerm"))
+          v$values
+        else if (term$variable[[1L]] == self$name)
+          self$values
+        else NULL
+      } else NULL
     },
 
     # Helper function to compute z(i,j,k,n) = s(i,j,k) * t(i,j,n)
@@ -89,10 +95,49 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
       ijkn * aperm(ijnk, c(1, 2, 4, 3))
     },
 
+    atmosphere_hybrid_sigma_pressure_coordinate = function() {
+      # p(n,k,j,i) = a(k)*p0 + b(k)*ps(n,j,i)
+      # or
+      # p(n,k,j,i) = ap(k) + b(k)*ps(n,j,i)
+      # Alternatively: a/ap(k,l) and b(k,l) to calculate layer boundary values as in Sentinel 5P
+      ps <- private$get_data("ps")
+      b <- private$get_data("b")
+
+      # Construct the axes for the result. Use "ps" axes [i,j,n], combine with
+      # self axis [k].
+      ps_var <- private$.terms[private$.terms$term == "ps", ]$param[[1L]]
+      ax <- ps_var$axes
+      axes <- list(ax[[1L]], ax[[2L]], self, ax[[3L]])
+
+      a <- private$get_data("a")
+      ap <- if (is.null(a)) private$get_data("ap")
+            else a * private$get_data("p0")
+
+      if (is.matrix(b)) {
+        # layer boundary values variant
+        crds <- sweep(ps %o% b, 4:5, ap, "+")
+        crds <- aperm(crds, c(1, 2, 5, 3, 4))
+        axes <- append(axes, CFAxisDiscrete$new("layer_position", start = 0L, count = 2L))
+      } else {
+        # layer mid-point variant
+        crds <- sweep(ps %o% b, 4, ap, "+")
+        crds <- aperm(crds, c(1, 2, 4, 3))
+      }
+
+      # Construct the result
+      names(axes) <- sapply(axes, function(ax) ax$name)
+      private$.name_computed <- "air_pressure"
+      v <- CFVariable$new(private$.name_computed, values = crds, axes = axes)
+      un <- ps_var$attribute("units")
+      if (!is.na(un))
+        v$set_attribute("units", "NC_CHAR", un)
+      private$.computed_values <- v
+    },
+
     ocean_s_coordinate_g1 = function() {
       # z(n,k,j,i) = S(k,j,i) + eta(n,j,i) * (1 + S(k,j,i) / depth(j,i))
       # where S(k,j,i) = depth_c * s(k) + (depth(j,i) - depth_c) * C(k)
-      s <- self$values
+      s <- private$get_data("s")
       C <- private$get_data("C")
       eta <- private$get_data("eta")
       depth <- private$get_data("depth")
@@ -102,9 +147,9 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
 
       # Construct the axes for the result. Use "depth" axes [i,j], combine with
       # self axis [k].
-      ax <- private$.terms[private$.terms$term == "depth", ]$param[[1L]]
-      axes <- append(ax$axes, self)
-      names(axes) <- c(names(ax$axes), self$name)
+      ax <- private$.terms[private$.terms$term == "depth", ]$param[[1L]]$axes
+      axes <- append(ax, self)
+      names(axes) <- c(names(ax), self$name)
 
       crds <- if (identical(eta, 0))
         S
@@ -134,7 +179,7 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     ocean_s_coordinate_g2 = function() {
       # z(n,k,j,i) = eta(n,j,i) + (eta(n,j,i) + depth(j,i)) * S(k,j,i)
       # where S(k,j,i) = (depth_c * s(k) + depth(j,i) * C(k)) / (depth_c + depth(j,i))
-      s <- self$values
+      s <- private$get_data("s")
       C <- private$get_data("C")
       eta <- private$get_data("eta")
       depth <- private$get_data("depth")
@@ -190,9 +235,9 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #' @description Create a new instance of this class.
     #' @param var The name of the axis when creating a new axis. When reading an
     #'   axis from file, the [NCVariable] object that describes this instance.
+    #' @param group The [CFGroup] that this instance will live in.
     #' @param values Optional. The values of the axis in a vector. The values
-    #'   have to be numeric and monotonic. Ignored when argument `var` is a
-    #'   `NCVariable` object.
+    #'   have to be numeric and monotonic.
     #' @param start Optional. Integer index where to start reading axis data
     #'   from file. The index may be `NA` to start reading data from the start.
     #' @param count Optional. Number of elements to read from file. This may be
@@ -201,11 +246,37 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #'   axis. When an empty `data.frame` (default) and argument `var` is an
     #'   `NCVariable` instance, attributes of the axis will be taken from the
     #'   netCDF resource.
-    initialize = function(var, values, start = 1L, count = NA, attributes = data.frame()) {
-      super$initialize(var, values = values, start = start, count = count, orientation =  "Z", attributes = attributes)
+    initialize = function(var, group, values, start = 1L, count = NA, attributes = data.frame()) {
+      super$initialize(var, group, values = values, start = start, count = count, orientation =  "Z", attributes = attributes)
 
       if (!is.na(self$attribute("formula_terms")))
         private$.parameter_name <- self$attribute("standard_name")
+    },
+
+    #' @description Attach this verical axis to a group, including any
+    #'   parameteric terms. If there is another object with the same name in
+    #'   this group an error is thrown. For associated objects (such as bounds,
+    #'   etc), if another object with the same name is otherwise identical to
+    #'   the associated object then that object will be linked from the
+    #'   variable, otherwise an error is thrown.
+    #' @param grp An instance of [CFGroup].
+    #' @param locations Optional. A `list` whose named elements correspond to
+    #'   the names of objects associated with this axis, possibly including the
+    #'   axis itself. Each list element has a single character string indicating
+    #'   the group in the hierarchy where the object should be stored. As an
+    #'   example, if the variable has axes "lon" and "lat" and they should be
+    #'   stored in the parent group of `grp`, then specify `locations = list(lon
+    #'   = "..", lat = "..")`. Locations can use absolute paths or relative
+    #'   paths from group `grp`. The axis and associated objects that are not in
+    #'   the list will be stored in group `grp`. If the argument `locations` is
+    #'   not provided, all associated objects will be stored in this group.
+    #' @return Self, invisibly.
+    attach_to_group = function(grp, locations = list()) {
+      # Parametric terms
+      # FIXME
+
+      # Now add the axis, boundary values and auxiliary coordinates to the group
+      super$attach_to_group(grp, locations)
     },
 
     #' @description Detach the parametric terms from an underlying netCDF
@@ -223,17 +294,18 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #'   all of its components are made as new instances.
     #' @param name The name for the new axis. If an empty string is passed, will
     #'   use the name of this axis.
+    #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return The newly created axis.
-    copy = function(name = "") {
+    copy = function(name = "", group) {
       if (self$has_resource) {
-        ax <- CFAxisVertical$new(self$NCvar, start = private$.start_count$start,
-                                 count = private$.start_count$count, attributes = self$attributes)
+        ax <- CFAxisVertical$new(self$NC, group = group, values = private$.values, start = private$.NC_map$start,
+                                 count = private$.NC_map$count, attributes = self$attributes)
         if (nzchar(name))
           ax$name <- name
       } else {
         if (!nzchar(name))
           name <- self$name
-        ax <- CFAxisVertical$new(name, values = private$.values, attributes = self$attributes)
+        ax <- CFAxisVertical$new(name, group = group, values = self$values, attributes = self$attributes)
       }
       private$copy_properties_into(ax)
 
@@ -252,12 +324,13 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #'   should set, modify or delete attributes as appropriate.
     #' @param name The name for the new axis. If an empty string is passed, will
     #'   use the name of this axis.
+    #' @param group The [CFGroup] where the copy of this axis will live.
     #' @param values The values to the used with the copy of this axis.
     #' @return The newly created axis.
-    copy_with_values = function(name = "", values) {
+    copy_with_values = function(name = "", group, values) {
       if (!nzchar(name))
         name <- self$name
-      CFAxisVertical$new(name, values = values, attributes = self$attributes)
+      CFAxisVertical$new(name, group = group, values = values, attributes = self$attributes)
     },
 
     #' @description Set the parametric terms for this axis. The name and the
@@ -294,15 +367,16 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #'   setting them back for this axis.
     #' @param from An instance of `CFAxisVertical` whose values to append to the
     #'   values of this axis.
+    #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return A new `CFAxisVertical` instance with values from this axis and
     #'   the `from` axis appended.
     append = function(from) {
       if (super$can_append(from) && .c_is_monotonic(self$values, from$values)) {
-        ax <- CFAxisVertical$new(self$name, values = c(private$values, from$values),
+        ax <- CFAxisVertical$new(self$name, group = group, values = c(private$values, from$values),
                                  attributes = self$attributes)
 
         if (!is.null(private$.bounds)) {
-          new_bnds <- private$.bounds$append(from$bounds)
+          new_bnds <- private$.bounds$append(from$bounds, group)
           if (!is.null(new_bnds))
             ax$bounds <- new_bnds
         }
@@ -330,26 +404,27 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #'   methods which call the `subset_parametric_terms()` method.
     #' @param name The name for the new axis. If an empty string is passed
     #'   (default), will use the name of this axis.
+    #' @param group The [CFGroup] where the copy of this axis will live.
     #' @param rng The range of indices whose values from this axis to include in
     #'   the returned axis. If the value of the argument is `NULL`, return a
     #'   copy of the axis.
     #' @return A new `CFAxisVertical` instance covering the indicated range of
     #'   indices. If the value of the argument `rng` is `NULL`, return a copy of
     #'   this axis as the new axis.
-    subset = function(name = "", rng = NULL) {
+    subset = function(name = "", group, rng = NULL) {
       if (is.null(rng))
-        self$copy(name)
+        self$copy(name, group = group)
       else {
         rng <- range(rng)
         if (self$has_resource) {
-          ax <- CFAxisVertical$new(private$.NCvar, start = private$.start_count$start + rng[1L] -1L,
+          ax <- CFAxisVertical$new(private$.NCobj, group = group, start = private$.NC_map$start + rng[1L] - 1L,
                                    count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name
         } else {
           if (!nzchar(name))
             name <- self$name
-          ax <- CFAxisVertical$new(name, values = private$.values[rng[1L]:rng[2L]],
+          ax <- CFAxisVertical$new(name, group = group, values = self$values[rng[1L]:rng[2L]],
                                    attributes = self$attributes)
         }
         private$copy_properties_into(ax, rng)

@@ -1,8 +1,8 @@
 ---
-title: "1. Using ncdfCF"
+title: "Using ncdfCF"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{1. Using ncdfCF}
+  %\VignetteIndexEntry{Using ncdfCF}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -56,10 +56,9 @@ Package `ncdfCF` provides a high-level interface using functions and methods tha
  * **Groups** are a feature of the newer `netcdf4` format, allowing for a directory-like structure in the netCDF resource. The specific scoping rules to find related objects distributed over multiple groups are supported.
  * The **axis designation**. The three mechanisms to identify the axis each dimension represents are applied until an axis is determined.
  * The **time axis**. Time is usually encoded as an offset from an origin. Using the [`CFtime` package](https://cran.r-project.org/web//packages//CFtime/index.html) these offsets can be turned into intelligible dates and times, for all defined calendars.
- * **Bounds** information. When present, bounds are read and used in analyses.
+ * **Bounds** information defines the size of grid cells in data variables. When present, bounds are read and used in analyses.
  * **Discrete dimensions**, possibly with character labels.
- * **Auxiliary coordinate variables** which describe **scalar axes** and
- **auxiliary longitude-latitude grids**. The latter can be used by `ncdfCF` to automatically align data variables that are not on a Cartesian grid to a longitude-latitude grid.
+ * **Auxiliary coordinate variables** which describe **scalar axes** and **auxiliary longitude-latitude grids**. The latter can be used by `ncdfCF` to automatically align data variables that are not on a Cartesian grid to a longitude-latitude grid.
  * The **cell measure variables** are read and linked to any data variables referencing them. Cell measure variables that are external to the netCDF resource with the referring data variable can be linked to the data set and then they are immediately available to the referring data variables.
  * **Labels**, as separate variables identified through the `coordinates` attribute of axes, are read, including when multiple sets of labels are defined for a single axis. Users can select which set of labels to make active for display, selection and processing.
  * The **grid_mapping variables**, providing the coordinate reference system (CRS) of the data, with support for all defined objects in the latest EPSG database as well as "manual" construction of CRSs.
@@ -111,13 +110,14 @@ But what if you are interested in only a small area or a month of data while the
 
 Enter `ncdfCF`. With `ncdfCF` you have several options to extract data for a variable:
 
- * **`[]`**: Using R's standard extraction operator `[` you work directly with the index values into the array dimensions: `d <- t2m[3:5, 1:4, 1:10]`. You can leave out dimensions to extract everything from that dimension (but you have to indicate the position, just like in regular arrays). So to get the first 5 "time" slices from `t2m`: `d <- t2m[, , 1:5]`. This works for any number of dimensions, you simply have to adjust the number of positions that you specify.  You still need to know the indices into the arrays but `ncdfCF` has some helper functions to get you those. Not specifying anything gets you the whole array: `d <- t2m[]`.
+ * **`[]`**: Using R's standard extraction operator `[` you work directly with the index values into the array dimensions: `d <- t2m[3:5, 1:4, 1:10]`. You can leave out dimensions to extract everything from that dimension (but you have to indicate the position, just like in regular arrays). So to get the first 5 "time" slices from `t2m`: `d <- t2m[, , 1:5]`. This works for any number of dimensions, you simply have to adjust the number of positions that you specify, including any degenerate dimensions. Effectively, you need to indicate as many positions as the data variable has axes. You still need to know the indices into the arrays but `ncdfCF` has some helper functions to get you those. Not specifying anything gets you the whole array: `d <- t2m[]`.
  * **`subset()`**: The `subset()` method is more flexible than `[]` because it requires less knowledge of how the data in the variable is structured, particularly the order of the axes. While many netCDF resources "behave" in their dimension order, there is no guarantee. With `subset()` you supply each axis you want to subset (by axis orientation or name, in any order) and each item containing a vector of real-world coordinates to extract. As an example, to extract values of a variable `x` for Australia for the year 2020 you call `x$subset(X = 112:154, Y = -9:-44, T = c("2020-01-01", "2021-01-01"))`. The result is returned as a new `CFVariable` object.
  * **`summarise()`**: The `summarise()` method summarises the temporal dimension of a data variable to a lower resolution and returns a `CFVariable` object with the results. For instance, you can summarise daily data to monthly summaries, which greatly reduces the size of the data variable. The periods to which data can be summarised are "day", "dekad" (10-day periods), "month", "quarter" (i.e. JFM, AMJ, JAS, OND), "season" (the meteorological seasons: DJF, MAM, JJA, SON), and "year". The function to summarise on is user-supplied and can be a simple built-in function, like `mean()`, a function that results multiple results, like `range()`, or a custom function. A new `CFVariable` instance is returned for every result returned from the function.
   
 
 ```{r extract}
 # Extract a time series for a specific location
+# As can be seen above, the `t2m` data variable has 3 axes
 ts <- t2m[5, 4, ]
 str(ts)
   
@@ -209,7 +209,7 @@ But the coordinate system is still not right. These are just ordinal values alon
 
 ```{r terra}
 (r <- tx$terra())
-plot(r)
+plot(r[[1]])
 ```
 
 So that's a fully specified `terra::SpatRaster` from netCDF data.

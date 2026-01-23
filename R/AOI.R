@@ -6,6 +6,8 @@
 #' @docType class
 AOI <- R6::R6Class("AOI",
   private = list(
+    .aux = NULL, # The [CFAuxiliaryLongLat] instance using this AOI.
+
     .minLon  = NULL,
     .maxLon  = NULL,
     .minLat  = NULL,
@@ -13,8 +15,7 @@ AOI <- R6::R6Class("AOI",
     .res     = NULL  # vector of X and Y resolutions
   ),
   public = list(
-    #' @field aux The [CFAuxiliaryLongLat] instance using this AOI.
-    aux        = NULL, #FIXME: Move to private
+    # #' @field aux The [CFAuxiliaryLongLat] instance using this AOI.
 
     #' @description Creating an instance of the class.
     #' @param lonMin,lonMax,latMin,latMax The minimum and maximum values of the
@@ -39,8 +40,8 @@ AOI <- R6::R6Class("AOI",
     #' @description Summary of the area of interest printed to the console.
     print = function() {
       cat("<Area of Interest>\n")
-      if (!is.null(self$aux))
-        cat("Auxiliary long-lat object:", self$aux$fullname, "\n\n")
+      if (!is.null(private$.aux))
+        cat("Auxiliary long-lat object:", private$.aux$fullname, "\n\n")
 
       if (!(is.null(private$.minLon))) {
         cat(sprintf("Longitude:  [%5.3f ... %5.3f]\n", private$.minLon, private$.maxLon))
@@ -67,8 +68,9 @@ AOI <- R6::R6Class("AOI",
       lat_vals <- seq(from = private$.minLat, by = private$.res[2L], length = dims[1L] + 1L)
       lat_vals <- rbind(lat_vals[1:dims[1L]], lat_vals[-1L])
 
-      list(lon = CFBounds$new("lon_bnds_aoi", values = lon_vals),
-           lat = CFBounds$new("lat_bnds_aoi", values = lat_vals))
+      grp <- CFGroup$new("", NULL)
+      list(lon = CFBounds$new("lon_bnds", group = grp, values = lon_vals),
+           lat = CFBounds$new("lat_bnds", group = grp, values = lat_vals))
     }
   ),
   active = list(
@@ -78,8 +80,8 @@ AOI <- R6::R6Class("AOI",
       else {
         .aoi_check_longitude(value, private$.maxLon)
         private$.minLon <- value
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 
@@ -89,8 +91,8 @@ AOI <- R6::R6Class("AOI",
       else {
         .aoi_check_longitude(private$.minLon, value)
         private$.maxLon <- value
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 
@@ -100,8 +102,8 @@ AOI <- R6::R6Class("AOI",
       else {
         .aoi_check_latitude(value, private$.maxLat)
         private$.minLat <- value
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 
@@ -111,8 +113,8 @@ AOI <- R6::R6Class("AOI",
       else {
         .aoi_check_latitude(private$.minLat, value)
         private$.maxLat <- value
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 
@@ -128,8 +130,8 @@ AOI <- R6::R6Class("AOI",
         private$.maxLon <- value[2L]
         private$.minLat <- value[3L]
         private$.maxLat <- value[4L]
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 
@@ -139,8 +141,8 @@ AOI <- R6::R6Class("AOI",
       else {
         .aoi_check_resolution(value)
         private$.res <- value
-        if (inherits(self$aux, "CFAuxiliaryLongLat"))
-          self$aux$clear_cache()
+        if (inherits(private$.aux, "CFAuxiliaryLongLat"))
+          private$.aux$clear_cache()
       }
     },
 

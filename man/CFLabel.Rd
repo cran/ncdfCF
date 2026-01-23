@@ -9,25 +9,27 @@ This class represent CF labels, i.e. a variable of character
 type that provides a textual label for a discrete or general numeric axis.
 See also \link{CFAxisCharacter}, which is an axis with character labels.
 }
-\section{Super class}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFLabel}
+\section{Super classes}{
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{CFLabel}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
-\item{\code{coordinates}}{Set or retrieve the labels of this object. Upon
+\item{\code{values}}{Set or retrieve the labels of this object. In general you
+should use the \code{coordinates} field rather than this one. Upon setting
+values, if there is a linked netCDF resource, this object will be
+detached from it.}
+
+\item{\code{coordinates}}{(read-only) Retrieve the labels of this object. Upon
 retrieval, label values are read from the netCDF resource, if there is
-one, upon first access and cached thereafter. Upon setting values, if
-there is a linked netCDF resource, this object will be detached from
-it.}
+one, upon first access and cached thereafter.}
 
 \item{\code{length}}{(read-only) The number of labels in the set.}
 
-\item{\code{dimid}}{(read-only) The netCDF dimension id of this label set. This
-field should only be accessed if the label set is backed by a netCDF
-resource.}
+\item{\code{dimid}}{The netCDF dimension id of this label set. Setting this
+value to anything other than the correct value will lead to disaster.}
 }
 \if{html}{\out{</div>}}
 }
@@ -36,24 +38,26 @@ resource.}
 \itemize{
 \item \href{#method-CFLabel-new}{\code{CFLabel$new()}}
 \item \href{#method-CFLabel-print}{\code{CFLabel$print()}}
+\item \href{#method-CFLabel-identical}{\code{CFLabel$identical()}}
+\item \href{#method-CFLabel-copy}{\code{CFLabel$copy()}}
 \item \href{#method-CFLabel-slice}{\code{CFLabel$slice()}}
 \item \href{#method-CFLabel-subset}{\code{CFLabel$subset()}}
 \item \href{#method-CFLabel-write}{\code{CFLabel$write()}}
-\item \href{#method-CFLabel-clone}{\code{CFLabel$clone()}}
 }
 }
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attach_to_group"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attach_to_group'><code>ncdfCF::CFObject$attach_to_group()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="detach"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-detach'><code>ncdfCF::CFObject$detach()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="detach"><a href='../../ncdfCF/html/CFData.html#method-CFData-detach'><code>ncdfCF::CFData$detach()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -63,7 +67,7 @@ resource.}
 \subsection{Method \code{new()}}{
 Create a new instance of this class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$new(var, values = NA, start = NA, count = NA)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$new(var, group, values = NA, start = NA, count = NA)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -72,6 +76,8 @@ Create a new instance of this class.
 \item{\code{var}}{The \link{NCVariable} instance upon which this CF object is based
 when read from a netCDF resource, or the name for the object new CF
 object to be created.}
+
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
 
 \item{\code{values}}{Optional. The labels of the CF object. Ignored when
 argument \code{var} is a \code{NCVariable} object.}
@@ -112,6 +118,52 @@ is \verb{width = } to indicate a maximum width of attribute columns.}
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFLabel-identical"></a>}}
+\if{latex}{\out{\hypertarget{method-CFLabel-identical}{}}}
+\subsection{Method \code{identical()}}{
+Tests if the object passed to this method is identical to
+\code{self}.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$identical(lbl)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{lbl}}{The \code{CFLabel} instance to test.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{TRUE} if the two label sets are identical, \code{FALSE} if not.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFLabel-copy"></a>}}
+\if{latex}{\out{\hypertarget{method-CFLabel-copy}{}}}
+\subsection{Method \code{copy()}}{
+Create a copy of this label set. The copy is completely
+separate from \code{self}, meaning that both \code{self} and all of its
+components are made from new instances.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$copy(name = "", group)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{The name for the new label set. If an empty string is passed,
+will use the name of this label set.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The newly created label set.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFLabel-slice"></a>}}
 \if{latex}{\out{\hypertarget{method-CFLabel-slice}{}}}
 \subsection{Method \code{slice()}}{
@@ -142,13 +194,15 @@ coordinates.
 \subsection{Method \code{subset()}}{
 Retrieve a subset of the labels.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$subset(name, rng)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$subset(name, group, rng)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{name}}{The name for the new label set, optional.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this label set will live.}
 
 \item{\code{rng}}{The range of indices whose values from this axis to include in
 the returned axis.}
@@ -165,42 +219,11 @@ A \code{CFLabel} instance, or \code{NULL} if the \code{rng} values are invalid.
 \subsection{Method \code{write()}}{
 Write the labels to a netCDF file, including its attributes.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$write(nc, dim)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFLabel$write()}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{nc}}{The handle of the netCDF file opened for writing or a group in
-the netCDF file. If \code{NULL}, write to the file or group where the labels
-were read from (the file must have been opened for writing). If not
-\code{NULL}, the handle to a netCDF file or a group therein.}
-
-\item{\code{dim}}{The dimension to write the labels for. This is the name or
-dimension id of the object that owns these labels. The dimension must
-have been written to file before this method is called.}
-}
-\if{html}{\out{</div>}}
-}
 \subsection{Returns}{
 Self, invisibly.
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFLabel-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-CFLabel-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFLabel$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
 }
 }
 }

@@ -7,7 +7,7 @@
 #' the developers of the `netcdf` library, package `ncdfCF` provides high-level
 #' access to netCDF resources. Resources are matched against the [Climate and
 #' Forecast (CF) Metadata Conventions](https://cfconventions.org/) for climate
-#' and forecasting data, current version 1.12. The CF Metadata Conventions is
+#' and forecasting data, current version 1.13. The CF Metadata Conventions is
 #' widely used for distributing files with climate observations or projections,
 #' including the Coupled Model Intercomparison Project (CMIP) data used by
 #' climate change scientists and the Intergovernmental Panel on Climate Change
@@ -57,13 +57,16 @@
 #' A [CFDataset] is the object that contains a netCDF resource. This is the main
 #' class that you need to access netCDF data from a file or an online resource.
 #'
+#' * `create_ncdf()`: Create a new CF data set.
 #' * `show()`: Print information about the data set to the console. This will
 #' print some information on the resource, as well as all identified data
-#' variables, axes, and the global attributes.
+#' variables and the global attributes.
 #' * `name`: The name of the data set.
 #' * `conventions`: The conventions that this data set complies with. There
 #' could be multiple conventions listed in a single character string. CF
 #' Metadata Conventions use a "CF-1.*" label.
+#' * `var_names()`, `axis_names`: Return a character vector with the names of the
+#' objects.
 #' * `variables()`, `axes()`, `attributes()`: Return a `list` or `data.frame` with
 #' all objects of the specific type found in the data set.
 #' * `find_by_name()`: Find a named object in the data set. This can be a data
@@ -81,6 +84,7 @@
 #'
 #' * [names()]: Vector of names of the data variables in the data set.
 #' * [dimnames()]: Vector of names of the axes in the data set.
+#' * [group()]: Vector of groups defined in the data set.
 #'
 #' **Data variable**
 #'
@@ -131,8 +135,8 @@
 #' ***New data variables***
 #'
 #' New `CFVariable` objects can be constructed from R vectors, matrices or
-#' arrays, optionally creating axes from dimnames on the R object, using the
-#' [as_CF()] function.
+#' arrays, optionally creating axes from dimnames on the R object, or a
+#' `terra::SpatRaster` using the [as_CF()] function.
 #'
 #' ***S3 methods for CFVariable***
 #'

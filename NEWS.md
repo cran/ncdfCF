@@ -1,3 +1,32 @@
+# ncdfCF 0.8.0
+
+#### Conventions
+- Ancillary variables are now associated with the data variables that reference them. They can be added with the `CFVariable::add_ancillary_variable()` method and the list of registered ancillary variables can be retrieved with the `CFVariable$ancillary_variables` field. Ancillary variables are `CFVariable` instances themselves and can have bounds and other data variable properties, and be processed like regular data variables.
+- Vertical parametric coordinate "Atmosphere hybrid sigma pressure coordinate" added. This supports both the layer mid-point formulation of CF and the layer top and bottom formulation often found in satellite observations of the atmosphere.
+
+#### API
+- `CFGroup` is now the main hierarchy from the user perspective, maintaining all CF objects. The `CFGroup$add_variable()` method places a `CFVariable` somewhere in the hierarchy, with owned CF objects (like axes, boundary values, CRS, etc) automatically attached to the same group or some other specified group.
+- All `[]` indexing and selection operations must include axes of length 1. This means that the indexing always has as many elements as there are axes in the CF variable. Reported dimensions include degenerate dimensions.
+- The `CFVariable::subset()` method now has an optional `.resolution` argument that can be specified when interpolation with auxiliary latitude-longitude coordinates is requested; otherwise it has no effect. This change does not break any existing code.
+- In `CFVariable$subset()` and `$profile()`, when selecting on auxiliary grid axes then both axes must be specified.
+- Function `create_ncdf()` creates a new netCDF resource on disk, as a container for persisting CF objects, or in memory.
+- Function `as_CF()` can now also convert a `terra::SpatRaster` to a `CFDataset` or a `CFVariable`, depending on the number of variables in the `SpatRaster`. This is a fragile process, mostly due to `terra` idiosyncrasies related to multi-dimensional data.
+- Documentation updated, now available online.
+
+#### Code
+- Access to data values is now consistently using the public field `values` for "standard" objects. Only objects that require special values management use private fields and expose the data values in another, more appropriate form.
+- `CFGroup` hierarchy maintains all CF objects. 1:1 alignment with the `NCGroup` hierarchy for NC objects backed by a netCDF resource.
+- `CFData` class spawned from `CFObject` to act as a base class for CF objects that hold data, most notably `CFVariable`, `CFAxis` and `CFBounds` and descendant classes. The class manages the "shape" of the data, including degenerate dimensions, to maintain consistency with the owning object, principally the axes in a `CFVariable` instance.
+- Stricter checking of data types versus netCDF types.
+- Attributes are now considered when testing for axis equality.
+- Support some edge cases in reading marginally-CF netCDF files, including lateral search.
+- `CFVariable` S3 methods fixed.
+- Multi-dimensional auxiliary lat-long grids are silently truncated to 2D.
+- Improved speed of opening netCDF files with multiple data variables using the same auxiliary long-lat grid.
+- `CFResource` has been renamed `NCResource`.
+- Additional testing added.
+- Bug fixes.
+
 # ncdfCF 0.7.0
 
 This is a major restructuring of the code logic to better separate between file-based netCDF objects and in-memory CF objects. Additionally, there are important additions to the user-facing API, in particular with regards to arithmetic, math and logical expressions on CF objects.
@@ -77,7 +106,7 @@ This is a major restructuring of the code logic to better separate between file-
 - `CFAxis` has new `coordinates` field with which to retrieve the coordinates along the axis.
 - New attributes can be defined on any object that supports attributes, or deleted.
 - Fixed error on reading bounds for auxiliary coordinate variables. Various other minor code fixes.
-- `CFResource` fixed to conform to new `R6` version.
+- `NCResource` fixed to conform to new `R6` version.
 - Documentation updated, including vignettes.
 
 # ncdfCF 0.3.0

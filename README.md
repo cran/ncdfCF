@@ -26,39 +26,7 @@ intuitive user interface. Package `ncdfCF` provides a high-level
 interface using functions and methods that are familiar to the R user.
 It reads the structural metadata and also the attributes upon opening
 the resource. In the process, the `ncdfCF` package also applies CF
-Metadata Conventions to interpret the data. This currently applies to:
-
-- The **axis designation**. The three mechanisms to identify the axis
-  each dimension represents are applied until an axis is determined.
-- The **time coordinate**. Time is usually encoded as an offset from an
-  origin. Using the `CFtime` package these offsets can be turned into
-  intelligible dates and times, for all defined calendars.
-- **Bounds** information. When present, bounds are read and used in
-  analyses.
-- **Discrete coordinates**, optionally with character labels. When
-  labels are provided, these will be used as `dimnames` for the axis.
-  (Note that this also applies to generic numeric axes with labels
-  defined.)
-- **Parametric vertical coordinates** are computed using the
-  `formula_terms` attribute, for two ocean formulations.
-- **Auxiliary coordinates** are identified and read. This applies also
-  to **scalar axes** and **auxiliary longitude-latitude grids**.
-  Auxiliary coordinates can be activated by the user and then used in
-  display, selection and processing. Data on non-Cartesian grids can be
-  automatically rectified to a longitude-latitude grid if an auxiliary
-  grid is present in the resource.
-- The **cell measure variables** are read and linked to any data
-  variables referencing them. Cell measure variables that are external
-  to the netCDF resource with the referring data variable can be linked
-  to the data set and then they are immediately available to the
-  referring data variables.
-- **Labels**, as separate variables identified through the `coordinates`
-  attribute of axes, are read, including when multiple sets of labels
-  are defined for a single axis. Users can select which set of labels to
-  make active for display, selection and processing.
-- The **grid_mapping** variables, providing the coordinate reference
-  system (CRS) of the data, with support for all defined objects in the
-  latest EPSG database as well as “manual” construction of CRSs.
+Metadata Conventions to interpret the data.
 
 ## Basic usage
 
@@ -74,7 +42,7 @@ fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 # Open the file, all metadata is read
 (ds <- open_ncdf(fn))
 #> <Dataset> ERA5land_Rwanda_20160101 
-#> Resource   : /private/var/folders/gs/s0mmlczn4l7bjbmwfrrhjlt80000gn/T/RtmpWtgooh/temp_libpath49db3636d842/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc 
+#> Resource   : /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc 
 #> Format     : offset64 
 #> Collection : Generic netCDF data 
 #> Conventions: CF-1.6 
@@ -86,11 +54,9 @@ fn <- system.file("extdata", "ERA5land_Rwanda_20160101.nc", package = "ncdfCF")
 #>  tp   Total precipitation   m     NC_DOUBLE longitude, latitude, time
 #> 
 #> Attributes:
-#>  name        type    length value                                             
-#>  CDI         NC_CHAR  64    Climate Data Interface version 2.4.1 (https://m...
-#>  Conventions NC_CHAR   6    CF-1.6                                            
-#>  history     NC_CHAR 482    Tue May 28 18:39:12 2024: cdo seldate,2016-01-0...
-#>  CDO         NC_CHAR  64    Climate Data Operators version 2.4.1 (https://m...
+#>  name        type    length value                             
+#>  Conventions NC_CHAR  6     CF-1.6                            
+#>  history     NC_CHAR 34     Attributes simplified for example.
 
 # ...or very brief details
 ds$var_names
@@ -154,7 +120,7 @@ resource, use the `peek_ncdf()` function:
 ``` r
 peek_ncdf(fn)
 #> $uri
-#> [1] "/private/var/folders/gs/s0mmlczn4l7bjbmwfrrhjlt80000gn/T/RtmpWtgooh/temp_libpath49db3636d842/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc"
+#> [1] "/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/ncdfCF/extdata/ERA5land_Rwanda_20160101.nc"
 #> 
 #> $type
 #> [1] "Generic netCDF data"
@@ -184,31 +150,35 @@ peek_ncdf(fn)
 #> latitude                1
 #> 
 #> $attributes
-#>   id        name    type length
-#> 1  0         CDI NC_CHAR     64
-#> 2  1 Conventions NC_CHAR      6
-#> 3  2     history NC_CHAR    482
-#> 4  3         CDO NC_CHAR     64
-#>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 value
-#> 1                                                                                                                                                                                                                                                                                                                                                                                                                                    Climate Data Interface version 2.4.1 (https://mpimet.mpg.de/cdi)
-#> 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              CF-1.6
-#> 3 Tue May 28 18:39:12 2024: cdo seldate,2016-01-01,2016-01-01 /Users/patrickvanlaake/CC/ERA5land/Rwanda/ERA5land_Rwanda_t2m-pev-tp_2016-2018.nc ERA5land_Rwanda_20160101.nc\n2021-12-22 07:00:24 GMT by grib_to_netcdf-2.23.0: /opt/ecmwf/mars-client/bin/grib_to_netcdf -S param -o /cache/data5/adaptor.mars.internal-1640155821.967082-25565-12-0b19757d-da4e-4ea4-b8aa-d08ec89caf2c.nc /cache/tmp/0b19757d-da4e-4ea4-b8aa-d08ec89caf2c-adaptor.mars.internal-1640142203.3196251-25565-10-tmp.grib
-#> 4                                                                                                                                                                                                                                                                                                                                                                                                                                    Climate Data Operators version 2.4.1 (https://mpimet.mpg.de/cdo)
+#>          name    type length                              value
+#> 1 Conventions NC_CHAR      6                             CF-1.6
+#> 2     history NC_CHAR     34 Attributes simplified for example.
 ```
 
 ## Extracting data
 
-There are three ways to read data for a data variable from the resource:
+There are various ways to read data for a data variable from the
+resource:
 
 - **`[]`:** The usual R array operator gives you access to the raw,
   non-interpreted data in the netCDF resource. This uses index values
   into the dimensions and requires you to know the order in which the
   dimensions are specified for the variable. With a bit of tinkering and
   some helper functions in `ncdfCF` this is still very easy to do.
+- **`raw()`:** This also gets the data in the layout of the file (or the
+  data set) but with dimnames set. Importantly, you can call this after
+  calling `subset()` and you will get the raw data for the specific
+  spatial and temporal domain that you are interested in.
+- **`array()`:** Like `raw()`, this extracts all the (subsetted) data,
+  but now the data will be oriented in the standard R way of
+  column-major order. Y coordinates will run from the top to the bottom
+  (so latitude values, for instance, will be decreasing).
 - **`subset()`:** The `subset()` method lets you specify what you want
   to extract from each dimension in real-world coordinates and
   timestamps, in whichever order. This can also rectify non-Cartesian
-  grids to regular longitude-latitude grids.
+  grids to regular longitude-latitude grids. Subsetting is lazy: data is
+  not loaded so long as a direct relationship to the data in the netCDF
+  resource is maintained.
 - **`profile()`:** Extract “profiles” from the data variable. This can
   take different forms, such as a temporal or depth profile for a single
   location, but it could also be a zonal field (such as a transect in
@@ -299,8 +269,12 @@ attributes:
 #>  units     NC_CHAR  1     K
 ```
 
-The latter two methods will read only as much data from the netCDF
-resource as is requested.
+Data loading is lazy. In the examples above, you can see that data did
+not yet get loaded. This is intentional: you can subset your data in
+multiple ways before actually reading the data from the resource. This
+is particularly important when getting data from an online location,
+such as a remote THREDDS server. Use `raw()` or `array()` to get the
+arrays.
 
 ##### Make a profile of data
 
@@ -325,14 +299,14 @@ which will return data as it is recorded in the netCDF resource.
 rwa <- t2m$profile(longitude = c(30.07, 30.07, 29.74), latitude = c(-1.94, -1.58, -2.60), 
                    .names = c("Kigali", "Byumba", "Butare"), .as_table = TRUE)
 head(rwa)
-#>                   time longitude latitude .variable   .value
-#>                 <char>     <num>    <num>    <char>    <num>
-#> 1: 2016-01-01T00:00:00     30.07    -1.94    Kigali 290.4055
-#> 2: 2016-01-01T01:00:00     30.07    -1.94    Kigali 290.0088
-#> 3: 2016-01-01T02:00:00     30.07    -1.94    Kigali 289.3608
-#> 4: 2016-01-01T03:00:00     30.07    -1.94    Kigali 288.8414
-#> 5: 2016-01-01T04:00:00     30.07    -1.94    Kigali 288.4713
-#> 6: 2016-01-01T05:00:00     30.07    -1.94    Kigali 289.9276
+#>    longitude latitude                time .variable   .value
+#>        <num>    <num>              <char>    <char>    <num>
+#> 1:     30.07    -1.94 2016-01-01T00:00:00    Kigali 290.4055
+#> 2:     30.07    -1.94 2016-01-01T01:00:00    Kigali 290.0088
+#> 3:     30.07    -1.94 2016-01-01T02:00:00    Kigali 289.3608
+#> 4:     30.07    -1.94 2016-01-01T03:00:00    Kigali 288.8414
+#> 5:     30.07    -1.94 2016-01-01T04:00:00    Kigali 288.4713
+#> 6:     30.07    -1.94 2016-01-01T05:00:00    Kigali 289.9276
 attr(rwa, "value")
 #> $name
 #> [1] "2 metre temperature"
@@ -359,20 +333,19 @@ latitudinal transect, for instance, provide only a longitude coordinate:
 #> 
 #> Axes:
 #>  axis name      length values                                       
+#>  X    longitude 1      [29.74]                                      
 #>  Y    latitude  21     [-1 ... -3]                                  
 #>  T    time      24-U   [2016-01-01T00:00:00 ... 2016-01-01T23:00:00]
-#>  X    longitude 1      [29.74]                                      
 #>  unit                             
+#>  degrees_east                     
 #>  degrees_north                    
 #>  hours since 1900-01-01 00:00:00.0
-#>  degrees_east                     
 #> 
 #> Attributes:
 #>  name         type      length value                
 #>  long_name    NC_CHAR   19     2 metre temperature  
 #>  units        NC_CHAR    1     K                    
 #>  actual_range NC_DOUBLE  2     286.539447, 298.96298
-#>  coordinates  NC_CHAR    9     longitude
 ```
 
 Note that there is only a single longitude coordinate left, at exactly
@@ -396,9 +369,9 @@ t2m$summarise("tmax", max, "day")
 #> 
 #> Axes:
 #>  axis name      length values                unit                             
+#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #>  X    longitude 31     [28 ... 31]           degrees_east                     
 #>  Y    latitude  21     [-1 ... -3]           degrees_north                    
-#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #> 
 #> Attributes:
 #>  name         type      length value                
@@ -437,9 +410,9 @@ daily_stats <- function(x, na.rm = TRUE) {
 #> 
 #> Axes:
 #>  axis name      length values                unit                             
+#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #>  X    longitude 31     [28 ... 31]           degrees_east                     
 #>  Y    latitude  21     [-1 ... -3]           degrees_north                    
-#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #> 
 #> Attributes:
 #>  name         type      length value                 
@@ -456,9 +429,9 @@ daily_stats <- function(x, na.rm = TRUE) {
 #> 
 #> Axes:
 #>  axis name      length values                unit                             
+#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #>  X    longitude 31     [28 ... 31]           degrees_east                     
 #>  Y    latitude  21     [-1 ... -3]           degrees_north                    
-#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #> 
 #> Attributes:
 #>  name         type      length value                
@@ -475,9 +448,9 @@ daily_stats <- function(x, na.rm = TRUE) {
 #> 
 #> Axes:
 #>  axis name      length values                unit                             
+#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #>  X    longitude 31     [28 ... 31]           degrees_east                     
 #>  Y    latitude  21     [-1 ... -3]           degrees_north                    
-#>  T    time       1     [2016-01-01T12:00:00] hours since 1900-01-01 00:00:00.0
 #> 
 #> Attributes:
 #>  name         type      length value              
@@ -501,7 +474,7 @@ arr <- array(rnorm(120), dim = c(6, 5, 4))
 as_CF("my_first_CF_object", arr)
 #> <Variable> my_first_CF_object 
 #> 
-#> Values: [-3.054023 ... 2.954466] 
+#> Values: [-1.845046 ... 2.907942] 
 #>     NA: 0 (0.0%)
 #> 
 #> Axes:
@@ -512,7 +485,7 @@ as_CF("my_first_CF_object", arr)
 #> 
 #> Attributes:
 #>  name         type      length value              
-#>  actual_range NC_DOUBLE 2      -3.054023, 2.954466
+#>  actual_range NC_DOUBLE 2      -1.845046, 2.907942
 ```
 
 Usable but not very impressive. The axes have dull names without any
@@ -534,7 +507,7 @@ dimnames(arr) <- list(lat = c(45, 44, 43, 42, 41, 40), lon = c(0, 1, 2, 3, 4),
 (obj <- as_CF("a_better_CF_object", arr))
 #> <Variable> a_better_CF_object 
 #> 
-#> Values: [-3.054023 ... 2.954466] 
+#> Values: [-1.845046 ... 2.907942] 
 #>     NA: 0 (0.0%)
 #> 
 #> Axes:
@@ -545,11 +518,11 @@ dimnames(arr) <- list(lat = c(45, 44, 43, 42, 41, 40), lon = c(0, 1, 2, 3, 4),
 #> 
 #> Attributes:
 #>  name         type      length value              
-#>  actual_range NC_DOUBLE 2      -3.054023, 2.954466
+#>  actual_range NC_DOUBLE 2      -1.845046, 2.907942
 
 # Axes are of a specific type and have basic attributes set
 obj$axes[["lat"]]
-#> <Latitude axis> [-22] lat
+#> <Latitude axis> [-32] lat
 #> Length     : 6
 #> Axis       : Y 
 #> Coordinates: 45, 44, 43, 42, 41, 40 (degrees_north)
@@ -563,7 +536,7 @@ obj$axes[["lat"]]
 #>  units         NC_CHAR   13     degrees_north
 
 obj$axes[["time"]]
-#> <Time axis> [-24] time
+#> <Time axis> [-34] time
 #> Length     : 4
 #> Axis       : T 
 #> Calendar   : standard 
@@ -594,14 +567,14 @@ these methods.
 # install.packages("data.table")
 library(data.table)
 head(dt <- ts$data.table())
-#>    longitude latitude                time
-#>        <num>    <num>              <char>
-#> 1:      28.9       -1 2016-01-01T09:00:00
-#> 2:      29.0       -1 2016-01-01T09:00:00
-#> 3:      29.1       -1 2016-01-01T09:00:00
-#> 4:      29.2       -1 2016-01-01T09:00:00
-#> 5:      29.3       -1 2016-01-01T09:00:00
-#> 6:      29.4       -1 2016-01-01T09:00:00
+#>    longitude latitude                time      t2m
+#>        <num>    <num>              <char>    <num>
+#> 1:      28.9       -1 2016-01-01T09:00:00 295.7120
+#> 2:      29.0       -1 2016-01-01T09:00:00 296.1809
+#> 3:      29.1       -1 2016-01-01T09:00:00 297.6046
+#> 4:      29.2       -1 2016-01-01T09:00:00 298.8195
+#> 5:      29.3       -1 2016-01-01T09:00:00 300.1376
+#> 6:      29.4       -1 2016-01-01T09:00:00 300.8583
 
 #install.packages("terra")
 suppressMessages(library(terra))
@@ -618,7 +591,27 @@ suppressMessages(library(terra))
 terra::plot(r)
 ```
 
-<img src="man/figures/README-export-1.png" width="100%" />
+<img src="man/figures/README-export-1.png" alt="" width="100%" />
+
+A `stars` object can be created from a `CFVariable` or a `CFDataset`
+with multiple variables with the function `stars::st_as_stars()`.
+
+``` r
+library(stars)
+#> Loading required package: abind
+#> Loading required package: sf
+#> Linking to GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1; sf_use_s2() is TRUE
+(st <- st_as_stars(ts))
+#> stars object with 3 dimensions and 1 attribute
+#> attribute(s):
+#>             Min.  1st Qu.   Median     Mean  3rd Qu.     Max.
+#> t2m [K] 288.2335 293.2838 294.7573 294.9324 296.6282 301.2081
+#> dimension(s):
+#>           from to                  offset   delta    refsys x/y
+#> longitude    1  7                   28.85     0.1 OGC:CRS84 [x]
+#> latitude     1 11                   -0.95    -0.1 OGC:CRS84 [y]
+#> time         1  6 2016-01-01 09:00:00 UTC 1 hours   POSIXct
+```
 
 A `CFVariable` object can also be written back to a netCDF file. The
 object will have all its relevant attributes and properties written
@@ -632,30 +625,13 @@ stored in row-major order with increasing Y values).
 stats[["diurnal_range"]]$save("~/path/file.nc")
 ```
 
-##### A note on Discrete Sampling Geometries
-
-Discrete Sampling Geometries (DSG) map almost directly to the venerable
-`data.frame` in R (with several exceptions). In that sense, they are
-rather distinct from array-based data sets. At the moment there is no
-specific code for DSG, but the simplest layouts can currently already be
-read (without any warranty). Various methods, such as
-`CFVariable::subset()` or `CFVariable::array()` will fail miserably, and
-you are well-advised to try no more than the empty array indexing
-operator `CFVariable::[]` which will yield the full data variable with
-column and row names set as an array, of `CFVariable::data.table` for a
-format that matches the structure of a typical table closest. You can
-identify a DSG data set by the `featureType` attribute of the
-`CFDataset`.
-
-More comprehensive support for DSG is in the development plan.
-
 ## Development plan
 
 Package `ncdfCF` is still being developed. It supports reading of all
 data objects from netCDF resources in “classic” and “netcdf4” formats;
-and can write single data variables back to a netCDF file. From the CF
-Metadata Conventions it supports identification of axes, interpretation
-of the “time” axis, name resolution when using groups, cell boundary
+and can write data variables back to a netCDF file. From the CF Metadata
+Conventions it supports identification of axes, interpretation of the
+“time” axis, name resolution when using groups, cell boundary
 information, auxiliary coordinate variables, labels, cell measures,
 attributes and grid mapping information, among others.
 
@@ -664,14 +640,12 @@ features:
 
 ##### netCDF
 
-- Support for writing of complex data sets (single `CFVariable`
-  instances can already be written to file).
 - Writing data to an unlimited dimension of a data variable.
 
 ##### CF Metadata Conventions
 
-- Cell methods
-- Aggregation, using the CFA convention.
+- Cell methods.
+- Aggregation.
 - Support for discrete sampling geometries.
 - Compliance with CMIP5 / CMIP6 requirements.
 

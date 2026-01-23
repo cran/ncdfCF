@@ -11,8 +11,8 @@ longitude-latitude grid.
 The class manages the boundary information for an axis (2 vertices per
 element) or an auxiliary longitude-latitude grid (4 vertices per element).
 }
-\section{Super class}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFBounds}
+\section{Super classes}{
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{CFBounds}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -42,21 +42,21 @@ is a linked netCDF resource, this object will be detached from it.}
 \item \href{#method-CFBounds-subset}{\code{CFBounds$subset()}}
 \item \href{#method-CFBounds-append}{\code{CFBounds$append()}}
 \item \href{#method-CFBounds-write}{\code{CFBounds$write()}}
-\item \href{#method-CFBounds-clone}{\code{CFBounds$clone()}}
 }
 }
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attach_to_group"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attach_to_group'><code>ncdfCF::CFObject$attach_to_group()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="detach"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-detach'><code>ncdfCF::CFObject$detach()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="detach"><a href='../../ncdfCF/html/CFData.html#method-CFData-detach'><code>ncdfCF::CFData$detach()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -68,6 +68,7 @@ Create an instance of this class.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFBounds$new(
   var,
+  group,
   values,
   start = NA,
   count = NA,
@@ -82,6 +83,8 @@ Create an instance of this class.
 \item{\code{var}}{The name of the boundary variable when creating a new boundary
 variable. When reading a boundary variable from file, the \link{NCVariable}
 object that describes this instance.}
+
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
 
 \item{\code{values}}{Optional. The values of the boundary variable. This must be
 a numeric matrix whose first dimension has a length equal to the number
@@ -152,7 +155,7 @@ Create a copy of this bounds object The copy is completely
 separate from \code{self}, meaning that both \code{self} and all of its
 components are made from new instances.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$copy(name = "")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$copy(name = "", group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -160,6 +163,8 @@ components are made from new instances.
 \describe{
 \item{\code{name}}{The name for the new bounds object. If an empty string is
 passed, will use the name of this bounds object.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -177,12 +182,14 @@ range. This currently only applies to 1-D axes.
 This method returns boundary values which span the range of indices
 given by the \code{rng} argument.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$subset(rng)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$subset(group, rng)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
+\item{\code{group}}{The \link{CFGroup} where the copy of these bounds will live.}
+
 \item{\code{rng}}{The range of values from this bounds object to include in the
 returned object.}
 }
@@ -199,7 +206,7 @@ A \code{CFBounds} instance covering the indicated range of indices.
 Append boundary values at the end of the current values of
 the boundary variable.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$append(from)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$append(from, group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -207,6 +214,8 @@ the boundary variable.
 \describe{
 \item{\code{from}}{An instance of \code{CFBounds} whose values to append to the
 values of this boundary variable.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of these bounds will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -221,37 +230,18 @@ and the \code{from} boundary variable appended. If argument \code{from} is
 \if{latex}{\out{\hypertarget{method-CFBounds-write}{}}}
 \subsection{Method \code{write()}}{
 Write the boundary variable to a netCDF file. This method
-should not be called directly; instead, \code{CFVariable::save()} will call
+should not be called directly; instead, \code{CFVariable$save()} will call
 this method automatically.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$write(h, object_name)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFBounds$write(object_name)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{h}}{The handle to a netCDF file open for writing.}
-
 \item{\code{object_name}}{The name of the object that uses these boundary
 values, usually an axis but could also be an auxiliary CV or a
 parametric Z axis.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFBounds-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-CFBounds-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFBounds$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
 }
 \if{html}{\out{</div>}}
 }

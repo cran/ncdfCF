@@ -5,15 +5,15 @@
 \alias{CFVariable}
 \title{CF data variable}
 \description{
-This class represents a CF data variable,
-the object that provides access to an array of data.
+This class represents a CF data variable, the object that
+provides access to an array of data.
 
 The CF data variable instance provides access to all the details that have
 been associated with the data variable, such as axis information, grid
 mapping parameters, etc.
 }
-\section{Super class}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFVariable}
+\section{Super classes}{
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{CFVariable}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -21,10 +21,10 @@ mapping parameters, etc.
 \item{\code{friendlyClassName}}{(read-only) A nice description of the class.}
 
 \item{\code{axes}}{(read-only) List of instances of classes descending from
-\link{CFAxis} that are the axes of the data object. If there are any scalar
-axes, they are listed after the axes that associate with the dimensions
-of the data. (In other words, axes \verb{1..n} describe the \verb{1..n} data
-dimensions, while any axes \verb{n+1..m} are scalar axes.)}
+\link{CFAxis} that are the axes of the data object.}
+
+\item{\code{ancillary_variables}}{A list of ancillary data variables associated
+with this data variable.}
 
 \item{\code{crs}}{The coordinate reference system of this variable,
 as an instance of \link{CFGridMapping}. If this field is \code{NULL}, the
@@ -42,6 +42,11 @@ NC variable used by this variable.}
 \item{\code{auxiliary_names}}{(read-only) Retrieve the names of the auxiliary
 longitude and latitude grids as a vector of two character strings, in
 that order. If no auxiliary grids are defined, returns \code{NULL}.}
+
+\item{\code{values}}{(read-only) Retrieve the raw values of the data variable.
+In general you should use the \code{raw()} function rather than this method
+because the \code{raw()} function will attach \code{dimnames} to the array that
+is returned.}
 
 \item{\code{gridLongLat}}{Retrieve or set the grid of longitude and latitude
 values of every grid cell when the main variable grid has a different
@@ -73,8 +78,10 @@ description of the variable as a WKT2 string.}
 \item \href{#method-CFVariable-is_coincident}{\code{CFVariable$is_coincident()}}
 \item \href{#method-CFVariable-add_cell_measure}{\code{CFVariable$add_cell_measure()}}
 \item \href{#method-CFVariable-add_auxiliary_coordinate}{\code{CFVariable$add_auxiliary_coordinate()}}
+\item \href{#method-CFVariable-add_ancillary_variable}{\code{CFVariable$add_ancillary_variable()}}
+\item \href{#method-CFVariable-attach_to_group}{\code{CFVariable$attach_to_group()}}
+\item \href{#method-CFVariable-write}{\code{CFVariable$write()}}
 \item \href{#method-CFVariable-save}{\code{CFVariable$save()}}
-\item \href{#method-CFVariable-clone}{\code{CFVariable$clone()}}
 }
 }
 \if{html}{\out{
@@ -82,12 +89,12 @@ description of the variable as a WKT2 string.}
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -99,6 +106,7 @@ Create an instance of this class.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFVariable$new(
   var,
+  group,
   axes,
   values = values,
   start = NA,
@@ -114,26 +122,28 @@ Create an instance of this class.
 when read from a netCDF resource, or the name for the new CF variable
 to be created.}
 
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
+
 \item{\code{axes}}{List of instances of \link{CFAxis} to use with this variable.}
 
 \item{\code{values}}{Optional. The values of the variable in an array.}
 
 \item{\code{start}}{Optional. Vector of indices where to start reading data
-along the dimensions of the array on file. The vector must be \code{NA} to
-read all data, otherwise it must have agree with the dimensions of the
-array on file. Ignored when argument \code{var} is not an \code{NCVariable}
+along the dimensions of the NC variable on file. The vector must be
+\code{NA} to read all data, otherwise it must have agree with the dimensions
+of the NC variable. Ignored when argument \code{var} is not an \code{NCVariable}
 instance.}
 
 \item{\code{count}}{Optional. Vector of number of elements to read along each
-dimension of the array on file. The vector must be \code{NA} to read to the
-end of each dimension, otherwise its value must agree with the
-corresponding \code{start} value and the dimension of the array on file.
+dimension of the NC variable on file. The vector must be \code{NA} to read
+to the end of each dimension, otherwise its value must agree with the
+corresponding \code{start} value and the dimension of the NC variable.
 Ignored when argument \code{var} is not an \code{NCVariable} instance.}
 
 \item{\code{attributes}}{Optional. A \code{data.frame} with the attributes of the
 object. When argument \code{var} is an \code{NCVariable} instance and this
 argument is an empty \code{data.frame} (default), arguments will be read
-from the resource.}
+from the netCDF resource.}
 }
 \if{html}{\out{</div>}}
 }
@@ -274,7 +284,7 @@ This method extracts a subset of values from the array of
 the variable, with the range along each axis to extract expressed in
 coordinate values of the domain of each axis.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFVariable$subset(..., rightmost.closed = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFVariable$subset(..., rightmost.closed = FALSE, .resolution = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -292,6 +302,12 @@ clipped to the extent of the axis.}
 boundary of range in each axis should be included. You must use the
 argument name when specifying this, like \code{rightmost.closed = TRUE}, to
 avoid the argument being treated as an axis name.}
+
+\item{\code{.resolution}}{For interpolation with auxiliary coordinates, the
+resolution in longitude and latitude directions as numeric values in
+decimal degrees, optional. If a single value is given, it will apply in
+both directions. If not supplied, the resolution in the center of the
+requested area will be calculated and applied over the entire area.}
 }
 \if{html}{\out{</div>}}
 }
@@ -318,8 +334,8 @@ are all either smaller or larger than the valid range of the axis then
 nothing is extracted and \code{NULL} is returned.
 
 The extracted data has the same dimensional structure as the data in
-the variable, with degenerate dimensions dropped. The order of the axes
-in argument \code{...} does not reorder the axes in the result; use the
+the variable, with degenerate dimensions preserved. The order of the
+axes in argument \code{...} does not reorder the axes in the result; use the
 \code{array()} method for this.
 
 As an example, to extract values of a variable for Australia for the
@@ -349,14 +365,12 @@ to extract the full extent, specify \code{NA} for both axes.
 \subsection{Returns}{
 A \code{CFVariable} instance, having the axes and attributes of the
 variable, or \code{NULL} if one or more of the selectors in the \code{...}
-argument fall entirely outside of the range of the axis. Note that
-degenerate dimensions (having \code{length(.) == 1}) are dropped from the
-data array but the corresponding axis is maintained in the result as a
-scalar axis.
+argument fall entirely outside of the range of the axis.
 
 If \code{self} is linked to a netCDF resource then the result will be linked
 to the same netCDF resource as well, except when \emph{auxiliary coordinate
-variables} have been selected for the planar axes.
+variables} have been selected for the planar axes. In all cases the
+result will be attached to a private group.
 }
 }
 \if{html}{\out{<hr>}}
@@ -365,15 +379,6 @@ variables} have been selected for the planar axes.
 \subsection{Method \code{summarise()}}{
 Summarise the temporal domain of the data, if present, to a
 lower resolution, using a user-supplied aggregation function.
-
-Attributes are copied from the input data variable or data array. Note
-that after a summarisation the attributes may no longer be accurate.
-This method tries to sanitise attributes but the onus is on the calling
-code (or yourself as interactive coder). Attributes like
-\code{standard_name} and \code{cell_methods} likely require an update in the
-output of this method, but the appropriate new values are not known to
-this method. Use \code{CFVariable$set_attribute()} on the result of this
-method to set or update attributes as appropriate.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFVariable$summarise(name, fun, period, era = NULL, ...)}\if{html}{\out{</div>}}
 }
@@ -414,6 +419,17 @@ if used, should have names as these will be used to label the results.}
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Details}{
+Attributes are copied from the input data variable or data
+array. Note that after a summarisation the attributes may no longer be
+accurate. This method tries to sanitise attributes but the onus is on
+the calling code (or yourself as interactive coder). Attributes like
+\code{standard_name} and \code{cell_methods} likely require an update in the
+output of this method, but the appropriate new values are not known to
+this method. Use \code{CFVariable$set_attribute()} on the result of this
+method to set or update attributes as appropriate.
+}
+
 \subsection{Returns}{
 A \code{CFVariable} object, or a list thereof with as many
 \code{CFVariable} objects as \code{fun} returns values.
@@ -487,10 +503,10 @@ names of the primary planar axes).
 }
 
 \subsection{Returns}{
-If \code{.as_table = FALSE}, a \code{CFVariable} instance, or a list
+If \code{.as_table == FALSE}, a \code{CFVariable} instance, or a list
 thereof with each having one profile for each of the elements in the
 "location" vectors of argument \code{...} and named with the respective
-\code{.names} value. If \code{.as_table = TRUE}, a \code{data.table} with a row for
+\code{.names} value. If \code{.as_table == TRUE}, a \code{data.table} with a row for
 each element along all profiles, with a ".variable" column using the
 values from the \code{.names} argument.
 }
@@ -520,8 +536,8 @@ variable and in the \code{CFVariable} instance in argument \code{from}.}
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-\code{self}, invisibly, with the arrays from this data variable and
-\code{from} appended.
+Self, invisibly, with the arrays from this data variable and
+\code{from} appended, in a new private group.
 }
 }
 \if{html}{\out{<hr>}}
@@ -562,7 +578,8 @@ If present, attributes 'long_name' and 'units' are attached to the
 \item{\code{var_as_column}}{Logical to flag if the name of the variable should
 become a column (\code{TRUE}) or be used as the name of the column with the
 data values (\code{FALSE}, default). Including the name of the variable as a
-column is useful when multiple \code{data.table}s are merged into one.}
+column is useful when multiple \code{data.table}s are merged by rows into
+one.}
 }
 \if{html}{\out{</div>}}
 }
@@ -640,10 +657,98 @@ Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFVariable-add_ancillary_variable"></a>}}
+\if{latex}{\out{\hypertarget{method-CFVariable-add_ancillary_variable}{}}}
+\subsection{Method \code{add_ancillary_variable()}}{
+Add an ancillary variable to this variable.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFVariable$add_ancillary_variable(var)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{var}}{An instance of \link{CFVariable}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFVariable-attach_to_group"></a>}}
+\if{latex}{\out{\hypertarget{method-CFVariable-attach_to_group}{}}}
+\subsection{Method \code{attach_to_group()}}{
+Attach this variable to a group. If there is another object
+with the same name in this group an error is thrown. For associated
+objects (such as axes, CRS, boundary variables, etc), if another object
+with the same name is otherwise identical to the associated object then
+that object will be linked from the variable, otherwise an error is
+thrown.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFVariable$attach_to_group(grp, locations = list())}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{grp}}{An instance of \link{CFGroup}.}
+
+\item{\code{locations}}{Optional. A \code{list} whose named elements correspond to
+the names of objects associated with this variable (but not the
+variable itself). Each list element has a single character string
+indicating the group in the hierarchy where the object should be
+stored. As an example, if the variable has axes "lon" and "lat" and
+they should be stored in the parent group of \code{grp}, then specify
+\code{locations = list(lon = "..", lat = "..")}. Locations can use absolute
+paths or relative paths from the group. Associated objects that are not
+in the list will be stored in group \code{grp}. If the argument \code{locations}
+is not provided, all associated objects will be stored in this group.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFVariable-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFVariable-write}{}}}
+\subsection{Method \code{write()}}{
+Write the data variable to a netCDF file, including all of
+its dependent objects, such as axes and attributes.
+
+Axes with \code{length == 1L} are written as a "scalar axis", unless they
+are unlimited.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFVariable$write(pack)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{pack}}{Optional. Logical to indicate if the data should be packed
+for a \code{CFVariable} first written to file. Packing is only useful for
+numeric data; packing is not performed on integer values. Packing is
+always to the "NC_SHORT" data type, i.e. 16-bits per value. If the
+variable has been written before, the packing state of the variable on
+file will be used.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-CFVariable-save"></a>}}
 \if{latex}{\out{\hypertarget{method-CFVariable-save}{}}}
 \subsection{Method \code{save()}}{
-Save the data object to a netCDF file.
+Save the data variable to a netCDF file, including its
+subordinate objects such as axes, CRS, etc. Note that saving a data
+variable will create a "bare-bones" netCDF file and its associated
+\link{CFDataset}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFVariable$save(fn, pack = FALSE)}\if{html}{\out{</div>}}
 }
@@ -654,30 +759,14 @@ Save the data object to a netCDF file.
 \item{\code{fn}}{The name of the netCDF file to create.}
 
 \item{\code{pack}}{Logical to indicate if the data should be packed. Packing is
-only useful for numeric data; packing is not performed on integer values.
-Packing is always to the "NC_SHORT" data type, i.e. 16-bits per value.}
+only useful for numeric data; packing is not performed on integer
+values. Packing is always to the "NC_SHORT" data type, i.e. 16-bits per
+value.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-Self, invisibly.
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFVariable-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-CFVariable-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFVariable$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
+The newly create \code{CFDataset}, invisibly.
 }
 }
 }

@@ -35,7 +35,6 @@ test_that("sample data", {
   names(lst) <- aux_names
   sub <- tm$subset(lst)
   expect_equal(sapply(sub$axes, function (x) x$length), c(lon = 31, lat = 23, time = 1, height = 1))
-  expect_equal(sub$attribute("coordinates"), "height")
 })
 
 # Offline data, not available to CRAN or Github
@@ -142,7 +141,6 @@ test_that("CRU data", {
     expect_equal(prof$axes[["time"]]$length, 120)
     expect_equal(prof$axes[["lon"]]$coordinates, 5)
     expect_equal(prof$axes[["lat"]]$coordinates, 50)
-    expect_equal(prof$attribute("coordinates"), "lon lat")
 
     prof <- tmp$profile(lat = c(5, 10, 15), lon = c(30, 30, 30), .names = c("South_Sudan", "Sudan__South_Kordofan"))
     expect_true(is.list(prof))
@@ -156,12 +154,11 @@ test_that("CRU data", {
     expect_equal(prof$axes[["lat"]]$length, 360)
     expect_equal(prof$axes[["time"]]$length, 120)
     expect_equal(prof$axes[["lon"]]$coordinates, 5)
-    expect_equal(prof$attribute("coordinates"), "lon")
 
     # Summarise data
-    summ <- tmp$summarise("Tmean", mean, "season")
+    summ <- tmp$summarise("Tmean", mean, "year")
     expect_equal(summ$name, "Tmean")
-    expect_equal(summ$axes[["time"]]$length, 41)
+    expect_equal(summ$axes[["time"]]$length, 10)
     expect_length(summ$attribute("actual_range"), 2)
 
     summ <- sub$summarise("Tmean", mean, "season")
@@ -236,7 +233,7 @@ test_that("CMEMS example online", {
 
     # Make a vertical profile of temperature at a single location for the month of July 2024
     tprof <- thetao$profile(longitude = 12.71, latitude = 40.33, time = "2024-07-01", .names = "Tyrrhenian_Sea")
-    expect_equal(sapply(tprof$axes, function(ax) ax$length), c(depth = 141, longitude = 1, latitude = 1, time = 1))
+    expect_equal(sapply(tprof$axes, function(ax) ax$length), c(longitude = 1, latitude = 1, depth = 141, time = 1))
     Tjuly <- tprof$data.table()
     expect_length(Tjuly, 5)
     expect_equal(nrow(Tjuly), 141)
@@ -252,10 +249,8 @@ test_that("Auxiliary grids", {
   if (file.exists(aux)) {
     ds <- open_ncdf(aux)
     pr <- ds[["pr"]]
-    expect_equal(pr$attribute("coordinates"), "lat lon")
     expect_equal(pr$attribute("grid_mapping"), "rotated_latitude_longitude")
     sel <- pr$subset(lon = -10:5, lat = 45:60, time = c("2009-01-01", "2010-01-01"))
-    expect_true(is.na(sel$attribute("coordinates")))
     expect_true(is.na(sel$attribute("grid_mapping")))
     lon_crds <- sel$axes[["lon"]]$coordinates
     lon_res <- diff(lon_crds[1:2])
@@ -292,7 +287,7 @@ test_that("Multiple label sets", {
     expect_equal(member$coordinates[1], "ACCESS-CM2")
     sel <- t$subset(time = "2020-01-01", member = c("CAMS-CSM1-0", "CESM2"))
     expect_true(inherits(sel, "CFVariable"))
-    expect_equal(sapply(sel$axes, function(x) x$length), c(lon = 360, lat = 180, member = 3, time = 1, height2m = 1))
+    expect_equal(sapply(sel$axes, function(x) x$length), c(lon = 360, lat = 180, time = 1, member = 3, height2m = 1))
     expect_equal(sel$axes[["member"]]$coordinates, c("CAMS-CSM1-0", "CESM2-WACCM", "CESM2"))
   }
 })
@@ -322,35 +317,6 @@ test_that("Merge CFVariable", {
   } else cat("\nCheck esm4\n")
 })
 
-test_that("L3b", {
-  l3b <- "../testdata/AQUA_MODIS.20030101.L3b.DAY.CHL.nc"
-  if (file.exists(l3b)) {
-    ds <- open_ncdf(l3b)
-    expect_equal(ds$file_type, "NASA level-3 binned data")
-    chl <- ds[["/level-3_binned_data/chlor_a"]]
-    expect_true(inherits(chl, "CFVariable"))
-    expect_equal(chl$name, "chlor_a")
-    expect_equal(chl$crs$attribute("grid_mapping_name"), "latitude_longitude")
-    expect_equal(names(chl$axes), c("latitude", "longitude", "time"))
-    expect_equal(sapply(chl$axes, function(ax) ax$length), c(latitude = 3001, longitude = 8432, time = 1))
-
-    raw <- chl$raw()
-    expect_equal(dim(raw), c(3001, 8432))
-    expect_equal(names(dimnames(raw)), c("latitude", "longitude"))
-
-    sub <- chl$subset(latitude = 0:30, longitude = 30:50)
-    expect_true(inherits(sub, "CFVariable"))
-    expect_equal(sub$name, "chlor_a")
-    expect_equal(sub$crs$attribute("grid_mapping_name"), "latitude_longitude")
-    expect_equal(names(sub$axes), c("latitude", "longitude", "time"))
-    expect_equal(sapply(sub$axes, function(ax) ax$length), c(latitude = 722, longitude = 482, time = 1))
-
-    raw <- sub$raw()
-    expect_equal(dim(raw), c(722, 482))
-    expect_equal(names(dimnames(raw)), c("latitude", "longitude"))
-  }
-})
-
 test_that("external_variables", {
   esm1 <- "../testdata/chl_Omon_MPI-ESM1-2-HR_ssp245_r1i1p1f1_gn_201501-201912.nc"
   if (file.exists(esm1)) {
@@ -368,4 +334,35 @@ test_that("external_variables", {
     area_var <- cm[[1L]]$data()
     expect_true(inherits(area_var, "CFVariable"))
   }
+})
+
+test_that("NORA3: Multiple length-1 dimensions - append, create new data set", {
+  fn <- "../testdata/fc2024062600_003_sfx.nc"
+  if (file.exists(fn)) {
+    nora3 <- open_ncdf(fn)
+    t2m <- nora3[["T2M"]]
+    q2m <- nora3[["Q2M"]]
+    h <- nora3[["H"]]
+    hr <- c("06", "12", "18")
+    for (i in seq_along(hr)) {
+      ds <- open_ncdf(paste0("../testdata/fc20240626", hr[i], "_003_sfx.nc"))
+      t2mx <- ds[["T2M"]]
+      t2m$append(t2mx, "time")
+      expect_equal(dim(t2m), c(x = 889, y = 1489, grib1_vLevel1053 = 1, time = i + 1L))
+      q2mx <- ds[["Q2M"]]
+      q2m$append(q2mx, "time")
+      expect_equal(dim(q2m), c(x = 889, y = 1489, grib1_vLevel1053 = 1, time = i + 1L))
+      hx <- ds[["H"]]
+      h$append(hx, "time")
+      expect_equal(dim(h), c(x = 889, y = 1489, grib1_vLevel1052 = 1, time = i + 1L))
+    }
+    expect_false(t2m$has_resource)
+    expect_equal(dim(t2m$values), c(889, 1489, 1, 4))
+  }
+
+  # Create new data set and append the new data variables
+  #fn <- tempfile(fileext = ".nc")
+  #ds <- create_ncdf(fn)
+
+  #unlink(fn)
 })

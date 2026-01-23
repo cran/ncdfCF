@@ -7,12 +7,17 @@
 #' @docType class
 #' @export
 CFLabel <- R6::R6Class("CFLabel",
-  inherit = CFObject,
+  inherit = CFData,
+  cloneable = FALSE,
+  private = list(
+    .dimid = -1L     # The NC dimension identifier or -1L when virtual
+  ),
   public = list(
     #' @description Create a new instance of this class.
     #' @param var The [NCVariable] instance upon which this CF object is based
     #'   when read from a netCDF resource, or the name for the object new CF
     #'   object to be created.
+    #' @param group The [CFGroup] that this instance will live in.
     #' @param values Optional. The labels of the CF object. Ignored when
     #'   argument `var` is a `NCVariable` object.
     #' @param start Optional. Integer index value indicating where to start
@@ -25,8 +30,10 @@ CFLabel <- R6::R6Class("CFLabel",
     #'   the number of labels on file. Ignored when argument `var` is not an
     #'   `NCVariable` instance.
     #' @return A `CFLabel` instance.
-    initialize = function(var, values = NA, start = NA, count = NA) {
-      super$initialize(var, values = values, start = start, count = count)
+    initialize = function(var, group, values = NA, start = NA, count = NA) {
+      super$initialize(var, group, values = values, start = start, count = count)
+      if (inherits(var, "NCVariable"))
+        private$.dimid <- var$dimids
       if (is.null(values) || (length(values) == 1L && is.na(values)))
         private$read_data()
     },
@@ -44,6 +51,35 @@ CFLabel <- R6::R6Class("CFLabel",
       cat("Length   :", self$length, "\n")
       cat("Data type:", self$data_type, "\n")
       self$print_attributes(...)
+    },
+
+    #' @description Tests if the object passed to this method is identical to
+    #'   `self`.
+    #' @param lbl The `CFLabel` instance to test.
+    #' @return `TRUE` if the two label sets are identical, `FALSE` if not.
+    identical = function(lbl) {
+      class(lbl)[1L] == "CFLabel" && self$length == lbl$length &&
+      self$name == lbl$name && self$attributes_identical(lbl$attributes) &&
+      all(self$coordinates == lbl$coordinates)
+    },
+
+    #' @description Create a copy of this label set. The copy is completely
+    #'   separate from `self`, meaning that both `self` and all of its
+    #'   components are made from new instances.
+    #' @param name The name for the new label set. If an empty string is passed,
+    #'   will use the name of this label set.
+    #' @param group The [CFGroup] where the copy of this axis will live.
+    #' @return The newly created label set.
+    copy = function(name = "", group) {
+      if (self$has_resource) {
+        lbl <- CFLabel$new(self$NC, group = group, start = private$.NC_map$start, count = private$.NC_map$count)
+        if (nzchar(name))
+          lbl$name <- name
+      } else {
+        if (!nzchar(name))
+          name <- self$name
+        lbl <- CFLabel$new(name, group = group, values = self$values)
+      }
     },
 
     #' @description Given a range of domain coordinate values, returns the
@@ -64,39 +100,47 @@ CFLabel <- R6::R6Class("CFLabel",
 
     #' @description Retrieve a subset of the labels.
     #' @param name The name for the new label set, optional.
+    #' @param group The [CFGroup] where the copy of this label set will live.
     #' @param rng The range of indices whose values from this axis to include in
     #'   the returned axis.
     #' @return A `CFLabel` instance, or `NULL` if the `rng` values are invalid.
-    subset = function(name, rng) {
-      if (missing(name)) name <- self$name
-      rng <- range(rng)
-      if (rng[1L] < 1L || rng[2L] > self$length)
-        NULL
+    subset = function(name, group, rng) {
+      if (is.null(rng))
+        self$copy(name, group)
       else {
-        if (self$has_resource) {
-          l <- CFLabel$new(private$.NCvar, values = private$.values[rng[1L]:rng[2L]], start = rng[1L], count = rng[2L] - rng[1L] + 1L)
-          l$name <- name
-          l
-        } else
-          CFLabel$new(name, values = self$coordinates[rng[1L]:rng[2L]])
+        if (missing(name)) name <- self$name
+        rng <- as.integer(range(rng))
+        if (rng[1L] < 1L || rng[2L] > self$length)
+          NULL
+        else {
+          if (self$has_resource) {
+            l <- CFLabel$new(private$.NCobj, group = group, values = self$values[rng[1L]:rng[2L]],
+                             start = rng[1L], count = rng[2L] - rng[1L] + 1L)
+            l$name <- name
+            l
+          } else
+            CFLabel$new(name, group = group, values = self$coordinates[rng[1L]:rng[2L]])
+        }
       }
     },
 
     #' @description Write the labels to a netCDF file, including its attributes.
-    #' @param nc The handle of the netCDF file opened for writing or a group in
-    #'   the netCDF file. If `NULL`, write to the file or group where the labels
-    #'   were read from (the file must have been opened for writing). If not
-    #'   `NULL`, the handle to a netCDF file or a group therein.
-    #' @param dim The dimension to write the labels for. This is the name or
-    #'   dimension id of the object that owns these labels. The dimension must
-    #'   have been written to file before this method is called.
     #' @return Self, invisibly.
-    write = function(nc, dim) {
-      h <- if (inherits(nc, "NetCDF")) nc else self$NCvar$handle
+    write = function() {
+      if (is.null(private$.NCobj)) {
+        # Try to find a NC variable
+        ncobj <- private$.group$NC$find_by_name(self$name)
+        private$.NCobj <- if (is.null(ncobj))
+          # Create a new NC variable
+          NCVariable$new(id = NA, name = self$name, group = private$.group$NC,
+                         vtype = "NC_STRING", dimids = private$.dimid)
+        else ncobj
 
-      self$id <- RNetCDF::var.def.nc(h, self$name, private$.data_type, dim)
-      self$write_attributes(h, self$name)
-      RNetCDF::var.put.nc(h, self$name, self$coordinates)
+        private$.data_dirty <- TRUE
+        private$write_data()
+      }
+
+      self$write_attributes()
     }
   ),
   active = list(
@@ -106,45 +150,44 @@ CFLabel <- R6::R6Class("CFLabel",
         "Label set"
     },
 
-    #' @field coordinates Set or retrieve the labels of this object. Upon
-    #'   retrieval, label values are read from the netCDF resource, if there is
-    #'   one, upon first access and cached thereafter. Upon setting values, if
-    #'   there is a linked netCDF resource, this object will be detached from
-    #'   it.
-    coordinates = function(value) {
+    #' @field values Set or retrieve the labels of this object. In general you
+    #'   should use the `coordinates` field rather than this one. Upon setting
+    #'   values, if there is a linked netCDF resource, this object will be
+    #'   detached from it.
+    values = function(value) {
       if (missing(value)) {
-        if (is.null(private$.values)) {
-          vals <- private$read_data()
-          if (!is.null(vals)) {
-            dim(vals) <- NULL
-            private$set_values(trimws(vals))
-          }
-        }
-        private$.values
+        private$read_data()
       } else {
         private$set_values(value)
         self$detach()
       }
     },
 
+    #' @field coordinates (read-only) Retrieve the labels of this object. Upon
+    #'   retrieval, label values are read from the netCDF resource, if there is
+    #'   one, upon first access and cached thereafter.
+    coordinates = function(value) {
+      if (missing(value))
+        self$values
+    },
+
     #' @field length (read-only) The number of labels in the set.
     length = function(value) {
       if (missing(value)) {
-        if (!is.null(private$.values))
-          length(private$.values)
+        if (!is.null(self$values))
+          length(self$values)
         else self$dim(1L)
       }
     },
 
 
-    #' @field dimid (read-only) The netCDF dimension id of this label set. This
-    #'   field should only be accessed if the label set is backed by a netCDF
-    #'   resource.
+    #' @field dimid The netCDF dimension id of this label set. Setting this
+    #'   value to anything other than the correct value will lead to disaster.
     dimid = function(value) {
-      if (missing(value)) {
-        if (self$has_resource) private$.NCvar$dimids[1L]
-        else -1L
-      }
+      if (missing(value))
+        private$.dimid
+      else
+        private$.dimid <- value
     }
   )
 )

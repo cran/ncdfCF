@@ -1,14 +1,11 @@
 #' NetCDF group
 #'
 #' @description This class represents a netCDF group, the object that holds
-#'   elements like dimensions and variables of a netCDF file. This class also
-#'   holds references to any CF objects based on the netCDF elements held by the
-#'   group.
+#'   elements like dimensions and variables of a netCDF file.
 #'
 #'   Direct access to groups is usually not necessary. The principal objects
-#'   held by the group, CF data variables and axes, are accessible via other
-#'   means. Only for access to the group attributes is a reference to a group
-#'   required. Changing the properties of a group other than its name may very
+#'   of interest, CF data variables and axes, are accessible via [CFGroup].
+#'   Changing the properties of a netCDF group other than its name may very
 #'   well invalidate the CF objects or even the netCDF file.
 #'
 #' @docType class
@@ -17,15 +14,15 @@ NCGroup <- R6::R6Class("NCGroup",
   private = list(
     # The name of the group. Groups manage their own names because they are not
     # compliant with CF rules when starting with a backslash.
-    nm = ""
+    .name = "",
+
+    # The CFGroup connected to this NC group
+    .CF = NULL,
+
+    # Access to the underlying netCDF resource.
+    .resource = NULL
   ),
   public = list(
-    #' @field resource Access to the underlying netCDF resource. This can be
-    #'   `NULL` for instances created in memory. Managed internally. Never
-    #'   change the `resource` as it will very likely lead to problems reading
-    #'   from and writing to file.
-    resource  = NULL,
-
     #' @field parent Parent group of this group, the owning `CFDataset` for the
     #'   root group.
     parent    = NULL,
@@ -43,47 +40,35 @@ NCGroup <- R6::R6Class("NCGroup",
     #'   group.
     NCudts    = list(),
 
-    #' @field CFvars List of CF data variables in this group. There must be a
-    #'   corresponding item in `NCvars` for each item in this list.
-    CFvars    = list(),
-
-    #' @field CFaxes List of axes of CF data variables in this group. There must
-    #'   be a corresponding item in `NCvars` for each item in this list. Note
-    #'   that the CF data variable(s) that an axis is associated with may be
-    #'   located in a different group. Also, objects that further describe the
-    #'   basic axis definition, such as its bounds, labels, ancillary data, may
-    #'   be located in a different group; all such elements can be accessed
-    #'   directly from the [CFAxis] instances that this list holds.
-    CFaxes    = list(),
-
-    #' @field CFaux List of auxiliary coordinates located in this group. These
-    #' could be [CFLabel] instances or an axis.
-    CFaux  = list(),
-
-    #' @field CFlonglat List of [CFAuxiliaryLongLat] that hold longitude and
-    #'   latitude values for every grid point in the data variable that
-    #'   references them.
-    CFlonglat = list(),
-
-    #' @field CFmeasures List of cell measures variables in this group.
-    CFmeasures = list(),
-
-    #' @field CFcrs List of grid mappings located in this group.
-    CFcrs = list(),
-
     #' @description Create a new instance of this class.
-    #' @param id The identifier of the group.
+    #' @param id The identifier of the group. If `NA`, the new group will be
+    #'   created in the netCDF resource, unless argument `parent == NULL`, i.e.
+    #'   the root group which already exists.
     #' @param name The name of the group.
     #' @param attributes Optional, a `data.frame` with group attributes.
-    #' @param parent The parent group of this group. the owning [CFDataset] for
-    #'   the root group.
-    #' @param resource Reference to the [CFResource] instance that provides
-    #'   access to the netCDF resource. For in-memory groups this can be `NULL`.
+    #' @param parent The parent group of this group. If `NULL` then argument
+    #'   `resource` must be a valid instance of `NCResource`.
+    #' @param resource Optional. Reference to the [NCResource] instance that
+    #'   provides access to the netCDF resource.
+    #' @return An instance of this class.
     initialize = function(id, name, attributes = data.frame(), parent, resource) {
+      if (is.na(id)) {
+        if (is.null(parent)) {
+          # Grab the root group from the resource
+          nc <- RNetCDF::grp.inq.nc(resource$handle)
+          id <- as.integer(nc$self)
+        } else {
+          # Add a sub-group
+          nc <- RNetCDF::grp.def.nc(parent$handle, name)
+          private$.resource$sync()
+          id <- as.integer(nc)
+        }
+      }
+
       super$initialize(id, "group", attributes)
-      private$nm <- name
+      private$.name <- name
       self$parent <- parent
-      self$resource <- resource
+      private$.resource <- if (missing(resource)) parent$resource else resource
     },
 
     #' @description Summary of the group printed to the console.
@@ -92,8 +77,8 @@ NCGroup <- R6::R6Class("NCGroup",
     #' of an enclosing object (`FALSE`).
     #' @param ... Passed on to other methods.
     print = function(stand_alone = TRUE, ...) {
-      if (stand_alone || private$nm != "/") {
-        cat("<", self$friendlyClassName, "> [", self$id, "] ", private$nm, "\n", sep = "")
+      if (stand_alone || private$.name != "/") {
+        cat("<", self$friendlyClassName, "> [", self$id, "] ", private$.name, "\n", sep = "")
         cat("Path      :", self$fullname, "\n")
       }
       if (length(self$subgroups) > 0L)
@@ -102,55 +87,15 @@ NCGroup <- R6::R6Class("NCGroup",
       self$print_attributes(...)
     },
 
-    #' @description Prints the hierarchy of the group and its subgroups to the
-    #'   console, with a summary of contained objects. Usually called from the
-    #'   root group to display the full group hierarchy.
-    #' @param idx,total Arguments to control indentation. Should both be 1 (the
-    #'   default) when called interactively. The values will be updated during
-    #'   recursion when there are groups below the current group.
-    hierarchy = function(idx = 1L, total = 1L) {
-      if (idx == total) sep <- "   " else sep <- "|  "
-      hier <- paste0("* ", private$nm, "\n")
-
-      # Axes
-      if (length(self$CFaxes) > 0L) {
-        ax <- paste(sapply(self$CFaxes, function(x) x$shard()), collapse = ", ")
-        hier <- c(hier, paste0(sep, "Axes     : ", ax, "\n"))
-      }
-
-      # Variables
-      if (length(self$CFvars) > 0L) {
-        vars <- lapply(self$CFvars, function(v) v$shard())
-        vars <- unlist(vars[lengths(vars) > 0], use.names = FALSE)
-        v <- paste(vars, collapse = ", ")
-        hier <- c(hier, paste0(sep, "Variables: ", v, "\n"))
-      }
-
-      # Subgroups
-      subs <- length(self$subgroups)
-      if (subs > 0L) {
-        sg <- unlist(sapply(1L:subs, function(g) self$subgroups[[g]]$hierarchy(g, subs)), use.names = FALSE)
-        hier <- c(hier, paste0(sep, sg))
-      }
-      hier
-    },
-
     #' @description Find an object by its name. Given the name of an object,
     #'   possibly preceded by an absolute or relative group path, return the
-    #'   object to the caller. Typically, this method is called
-    #'   programmatically; similar interactive use is provided through the
-    #'   `[[.CFDataset` operator.
-    #'
+    #'   object to the caller. Usually this method is called programmatically.
     #' @param name The name of an object, with an optional absolute or relative
-    #'   group path from the calling group. The object must either an CF
-    #'   construct (data variable, axis, auxiliary axis, label, or grid mapping)
-    #'   or an NC group, dimension or variable.
-    #' @param scope Either "CF" (default) for a CF construct, or "NC" for a
-    #'   netCDF group, dimension or variable.
-    #'
-    #' @return The object with the provided name in the requested scope. If the
-    #'   object is not found, returns `NULL`.
-    find_by_name = function(name, scope = "CF") {
+    #'   group path from the calling group. The object must be an NC group,
+    #'   dimension or variable.
+    #' @return The object with the provided name. If the object is not found,
+    #'   returns `NULL`.
+    find_by_name = function(name) {
       grp <- self
       elements <- strsplit(name[1L], "/", fixed = TRUE)[[1L]]
       parts <- length(elements)
@@ -165,9 +110,11 @@ NCGroup <- R6::R6Class("NCGroup",
         dotdots <- length(dotdot)
         if (dotdots > 0L) {
           if (range(dotdot)[2L] > dotdots)
-            stop("Malformed group path:", name[1L])
+            stop("Malformed group path:", name[1L], call. = FALSE) # nocov
           for (i in seq_len(dotdots))
             grp <- grp$parent
+          if (parts == dotdots)
+            return(grp)
           elements <- elements[-dotdot]
         }
       }
@@ -177,42 +124,22 @@ NCGroup <- R6::R6Class("NCGroup",
         for (i in 1L:(length(elements) - 1L)) {
           grp <- grp$subgroups[[ elements[i] ]]
           if (is.null(grp))
-            stop("Path not found in the resource:", name[1L])
+            stop("Path not found in the resource:", name[1L], call. = FALSE) # nocov
         }
 
       nm <- elements[length(elements)]
 
-      # Helper function to find a named object in the group `g`, either an
-      # CF or NC object, depending on the `scope` argument
+      # Helper function to find a named object in the group `g`
+      # FIXME: How to get to the dimension with the same name as a variable?
       .find_here <- function(g) {
-        if (scope == "CF") {
-          idx <- which(names(g$CFvars) == nm)
-          if (length(idx)) return(g$CFvars[[idx]])
+        idx <- which(names(g$NCvars) == nm)
+        if (length(idx)) return(g$NCvars[[idx]])
 
-          idx <- which(names(g$CFaxes) == nm)
-          if (length(idx)) return(g$CFaxes[[idx]])
+        idx <- which(names(g$NCdims) == nm)
+        if (length(idx)) return(g$NCdims[[idx]])
 
-          idx <- which(names(g$CFlonglat) == nm)
-          if (length(idx)) return(g$CFlonglat[[idx]])
-
-          idx <- which(names(g$CFaux) == nm)
-          if (length(idx)) return(g$CFaux[[idx]])
-
-          idx <- which(names(g$CFmeasures) == nm)
-          if (length(idx)) return(g$CFmeasures[[idx]])
-
-          idx <- which(names(g$CFcrs) == nm)
-          if (length(idx)) return(g$CFcrs[[idx]])
-        } else {
-          idx <- which(names(g$NCvars) == nm)
-          if (length(idx)) return(g$NCvars[[idx]])
-
-          idx <- which(names(g$NCdims) == nm)
-          if (length(idx)) return(g$NCdims[[idx]])
-
-          idx <- which(names(g$subgroups) == nm)
-          if (length(idx)) return(g$subgroups[[idx]])
-        }
+        idx <- which(names(g$subgroups) == nm)
+        if (length(idx)) return(g$subgroups[[idx]])
 
         NULL
       }
@@ -221,13 +148,29 @@ NCGroup <- R6::R6Class("NCGroup",
       obj <- .find_here(grp)
       if (!is.null(obj)) return(obj)
 
-      # If the named object was not qualified, search higher groups
-      if (parts == 1L)
+      if (parts == 1L) {
+        # If the named object was not qualified, search higher groups
         while (grp$name != "/") {
           grp <- grp$parent
           obj <- .find_here(grp)
           if (!is.null(obj)) return(obj)
         }
+
+        # If still not found, try lateral search
+        .traverse_subgroups <- function(g, level) {
+          obj <- .find_here(g)
+          if (is.null(obj))
+            lapply(g$subgroups, .traverse_subgroups, level = level + 1L)
+          else
+            list(level = level, obj = obj)
+        }
+
+        res <- lapply(grp$subgroups, .traverse_subgroups, level = 1L)
+        res <- res[lengths(res) > 0L]
+        # FIXME: The below takes the first occurrence, rather than the one with the lowest level
+        if (length(res))
+          return(res[[1L]]$obj)
+      }
 
       # Give up
       NULL
@@ -242,6 +185,9 @@ NCGroup <- R6::R6Class("NCGroup",
     #' @return The [NCDimension] object with an identifier equal to the `id`
     #'   argument. If the object is not found, returns `NULL`.
     find_dim_by_id = function(id) {
+      if (is.null(id))
+        return(NULL)
+
       dims <- sapply(self$NCdims, function(d) d$id)
       if (length(dims)) {
         idx <- which(dims == id)
@@ -255,29 +201,26 @@ NCGroup <- R6::R6Class("NCGroup",
     },
 
     #' @description Has a given name been defined in this group already?
-    #'
     #' @param name Character string. The name will be searched for, regardless
     #' of case.
-    #' @param scope Either "CF" for a CF construct, "NC" for a
-    #'   netCDF variable, or "both" (default) to test both scopes.
-    #'
     #' @return `TRUE` if `name` is present in the group, `FALSE` otherwise.
-    has_name = function(name, scope = "both") {
+    has_name = function(name) {
+      # FIXME: Must check for sub-group names too?
       name <- tolower(name)
-      res <- if (scope %in% c("NC", "both")) name %in% tolower(names(self$NCvars))
-             else FALSE
-      if (scope %in% c("CF", "both"))
-        res <- res ||
-               name %in% tolower(c(names(self$CFvars),
-                                   names(self$CFaxes),
-                                   names(self$CFlonglat),
-                                   names(self$CFaux),
-                                   names(self$CFcrs),
-                                   names(self$CFmeasures)))
-      else
-        stop("Invalid 'scope' argument supplied.", call. = FALSE)
+      name %in% tolower(names(self$NCvars))
+    },
 
-      res
+    #' @description Change the name of the NC group. The new name must be
+    #'   valid and should not duplicate a sibling group.
+    #' @param new_name The new name for the NC group.
+    #' @return Self, invisibly.
+    set_name = function(new_name) {
+      if (new_name != private$.name && is.null(group$parent$find_by_name(new_name)) &&
+          private$.resource$can_write) {
+        RNetCDF::grp.rename.nc(private$.resource$handle, new_name)
+        private$.name <- new_name
+      }
+      invisible(self)
     },
 
     #' @description Find NC variables that are not referenced by CF objects. For
@@ -296,56 +239,47 @@ NCGroup <- R6::R6Class("NCGroup",
       vars
     },
 
-    #' @description Add an auxiliary coordinate variable to the group. This
-    #'   method adds the passed auxiliary coordinate to the group `CFaux` list.
-    #' @param aux Instance of [CFLabel] or [CFAxis].
-    #' @return `self` invisibly.
-    add_auxiliary_coordinate = function(aux) {
-      if (!length(self$CFaux)) {
-        self$CFaux <- setNames(list(aux), aux$name)
-      } else {
-        self$CFaux[[aux$name]] <- aux
-      }
-      invisible(self)
+    #' @description Create a new group as a sub-group of the current group. This
+    #' writes the new group to the netCDF resource, but only if it is open for
+    #' writing.
+    #' @param CFgroup The [CFGroup] associated with this NC group.
+    #' @return The newly created group as a `NCGroup` instance, invisibly.
+    create_group = function(CFgroup) {
+      # fix this here
+      if (length(nm) != 1L || !.is_valid_name(nm))
+        stop("Argument `nm` must be a single character string with a netCDF-compliant value.", call. = FALSE)
+      if (!self$can_write)
+        stop("NetCDF resource is not writeable.", call. = FALSE)
+      if (nm %in% names(self$subgroups))
+        stop("Subgroup with the same name already exists.", call. = FALSE)
+
+      g <- RNetCDF::grp.def.nc(self$handle, nm)
+      grp <- NCGroup$new(id = as.integer(g$self), name = nm, parent = self,
+                         resource = private$.resource, CFGroup = CFgroup)
+      self$subgroups <- c(self$subgroups, setNames(list(grp), nm))
+      invisible(grp)
     },
 
-    #' @description Add an auxiliary long-lat variable to the group. This method
-    #'   creates a [CFAuxiliaryLongLat] from the arguments and adds it to the
-    #'   group `CFlonglat` list, but only if the combination of `lon`, `lat`
-    #'   isn't already present.
-    #' @param lon,lat Instances of [CFVariable], each having a two-dimensional
-    #'   grid of longitude and latitude values.
-    #' @param bndsLong,bndsLat Instances of [CFBounds] with the 2D bounds of the
-    #'   longitude and latitude grid values, respectively, or `NULL` when not
-    #'   set.
-    #' @return `self` invisibly.
-    add_auxiliary_longlat = function(lon, lat, bndsLong, bndsLat) {
-      nm <- paste(lon$name, lat$name, sep = "_")
-      if (!length(self$CFlonglat)) {
-        self$CFlonglat <- setNames(list(CFAuxiliaryLongLat$new(lon, lat, bndsLong, bndsLat)), nm)
-      } else {
-        known <- lapply(self$CFlonglat, function(a) c(a$lon$id, a$lat$id))
-        if (!any(sapply(known, function(k) k[1L] == lon$id && k[2L] == lat$id)))
-          self$CFlonglat[[nm]] <- CFAuxiliaryLongLat$new(lon, lat, bndsLong, bndsLat)
-      }
-      invisible(self)
-    },
+    #' @description Append an object to this group.
+    #' @param obj The object to append. This must be an `NCVariable` or
+    #'   `NCDimension` instance. Any other type of object will generate a
+    #'   warning.
+    #' @return Self, invisible.
+    append = function(obj) {
+      cls <- class(obj)[1L]
+      obj <- setNames(list(obj), obj$name)
+      switch(cls,
+             "NCVariable"  = self$NCvars <- c(self$NCvars, obj),
+             "NCDimension" = self$NCdims <- c(self$NCdims, obj),
+             warning("Cannot add object of class ", cls, " to an NC group.", call. = FALSE))
 
-    #' @description Add a cell measure variable to the group.
-    #' @param cm Instance of [CFCellMeasure].
-    #' @return `self` invisibly.
-    addCellMeasure = function(cm) {
-      self$CFmeasures <- append(self$CFmeasures, cm)
-      names(self$CFmeasures) <- sapply(self$CFmeasures, function(m) m$name)
       invisible(self)
     },
 
     #' @description This method lists the fully qualified name of this group,
     #'   optionally including names in subgroups.
-    #'
     #' @param recursive Should subgroups be scanned for names too (default is
     #'   `TRUE`)?
-    #'
     #' @return A character vector with group names.
     fullnames = function(recursive = TRUE) {
       if (recursive && length(self$subgroups))
@@ -365,7 +299,7 @@ NCGroup <- R6::R6Class("NCGroup",
       dims <- self$NCdims
       if (scope == "local") return(dims)
 
-      if (private$nm == "/")
+      if (private$.name == "/")
         dims
       else {
         pdims <- self$parent$dimensions()
@@ -377,64 +311,36 @@ NCGroup <- R6::R6Class("NCGroup",
         } else
           pdims
       }
-    },
-
-    #' @description This method lists the CF data variables located in this
-    #'   group, optionally including data variables in subgroups.
-    #'
-    #' @param recursive Should subgroups be scanned for CF data variables too
-    #'   (default is `TRUE`)?
-    #'
-    #' @return A list of [CFVariable].
-    variables = function(recursive = TRUE) {
-      if (recursive && length(self$subgroups))
-        c(self$CFvars, unlist(lapply(self$subgroups, function(g) g$variables(recursive)), use.names = FALSE))
-      else self$CFvars
-    },
-
-    #' @description This method lists the axes located in this group, optionally
-    #'   including axes in subgroups.
-    #'
-    #' @param recursive Should subgroups be scanned for axes too (default is
-    #'   `TRUE`)?
-    #'
-    #' @return A list of [CFAxis] descendants.
-    axes = function(recursive = TRUE) {
-      if (recursive && length(self$subgroups))
-        subaxes <- lapply(self$subgroups, function(g) g$axes(recursive))
-      else subaxes <- list()
-      c(self$CFaxes, unlist(subaxes, use.names = FALSE))
-    },
-
-    #' @description This method lists the grid mappings located in this group,
-    #'   optionally including grid mappings in subgroups.
-    #'
-    #' @param recursive Should subgroups be scanned for grid mappings too
-    #'   (default is `TRUE`)?
-    #'
-    #' @return A list of [CFGridMapping] instances.
-    grid_mappings = function(recursive = TRUE) {
-      if (recursive && length(self$subgroups))
-        subgm <- lapply(self$subgroups, function(g) g$grid_mappings(recursive))
-      else subgm <- list()
-      c(self$CFcrs, unlist(subgm, use.names = FALSE))
     }
   ),
   active = list(
     #' @field friendlyClassName (read-only) A nice description of the class.
     friendlyClassName = function(value) {
       if (missing(value))
-        "Group"
+        "NetCDF group"
+    },
+
+    #' @field resource (read-only) The RNetCDF object to the underlying netCDF
+    #'   resource.
+    resource = function(value) {
+      if (missing(value))
+        private$.resource
     },
 
     #' @field handle (read-only) Get the handle to the netCDF resource for the
     #'   group
     handle = function(value) {
-      if (missing(value))
-        if (is.null(self$resource)) NULL
-        else self$resource$group_handle(self$fullname)
-      else
+      if (missing(value)) {
+        if (is.null(private$.resource)) NULL
+        else private$.resource$group_handle(self$fullname)
+      } else
         stop("Can't assign a value to a netCDF resource handle", call. = FALSE)
+    },
+
+    #' @field can_write (read-only) Is the resource writable?
+    can_write = function(value) {
+      if (missing(value))
+        !is.null(private$.resource) && private$.resource$can_write
     },
 
     #' @field name Set or retrieve the name of the group. Note that the name is
@@ -443,18 +349,17 @@ NCGroup <- R6::R6Class("NCGroup",
     #'   a valid CF name. The name of the root group cannot be changed.
     name = function(value) {
       if (missing(value))
-        private$nm
-      else if (private$nm == "/")
+        private$.name
+      else if (private$.name == "/")
         stop("Cannot change the name of the root group", call. = FALSE)
-      else if (.is_valid_name(value)) {
-        private$nm <- value
-      }
+      else
+        self$set_name(value)
     },
 
     #' @field fullname (read-only) The fully qualified absolute path of the group.
     fullname = function(value) {
       if (missing(value)) {
-        nm <- private$nm
+        nm <- private$.name
         if (nm == "/") return(nm)
         g <- self
         while (g$parent$name != "/") {
@@ -474,15 +379,15 @@ NCGroup <- R6::R6Class("NCGroup",
       }
     },
 
-    #' @field data_set (read-only) Retrieve the [CFDataset] that the group
-    #'   belongs to. If the group is not attached to a `CFDataset`, returns
-    #'   `NULL`.
-    data_set = function(value) {
-      if (missing(value)) {
-        g <- self
-        while (inherits(g, "NCGroup")) g <- g$parent
-        g
-      }
+    #' @field CF Set or retrieve the [CFGroup] that is associated with this
+    #'   NC group.
+    CF = function(value) {
+      if (missing(value))
+        private$.CF
+      else if (inherits(value, "CFGroup"))
+        private$.CF <- value
+      else
+        stop("Bad CF group assignment.", call. = FALSE)
     }
   )
 )

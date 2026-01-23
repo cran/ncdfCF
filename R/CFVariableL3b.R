@@ -9,6 +9,7 @@
 #' @importFrom abind abind
 CFVariableL3b <- R6::R6Class("CFVariableL3b",
   inherit = CFVariable,
+  cloneable = FALSE,
   private = list(
     # Minimum and maximum row in the L3b variable.
     .file_rows = c(0L, 0L),
@@ -22,17 +23,17 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
     # The values from the file after reading.
     .values = NULL,
 
-    # Read all the data from the file and turn the data into a
-    #   matrix. If an `aoi` is specified, the data will be subset to that area.
+    # Read all the data from the file and turn the data into a matrix. If an
+    # `aoi` is specified, the data will be subset to that area.
     #
-    #   This method returns a bare-bones matrix without any metadata or other
-    #   identifying information. Use method `data()`, `subset()` or the `[`
-    #   operator rather than this method to obtain a more informative result.
+    # This method returns a bare-bones matrix without any metadata or other
+    # identifying information. Use method `data()`, `subset()` or the `[`
+    # operator rather than this method to obtain a more informative result.
     # Params start and count are the vectors to read data from the netCDF file.
     # Returns a matrix with the data of the variable in raw format.
     as_matrix = function(start, count) {
-      binList <- RNetCDF::var.get.nc(private$.NCvar$group$handle, "BinList")
-      binData <- RNetCDF::var.get.nc(private$.NCvar$group$handle, self$name)
+      binList <- RNetCDF::var.get.nc(private$.NCobj$group$handle, "BinList")
+      binData <- RNetCDF::var.get.nc(private$.NCobj$group$handle, self$name)
 
       # Get the binned data in rows
       data_row <- findInterval(binList$bin_num, private$.index$start_num)
@@ -82,8 +83,10 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
     # @param refresh Flag to indicate if a fresh read from file should be made.
     # @return A matrix with the data of the variable in raw format.
     read_data = function(refresh = FALSE) {
-      if (is.null(private$.values) || refresh)
+      if (is.null(private$.values) || refresh) {
         private$.values <- private$as_matrix()
+        self$set_attribute("actual_range", "NC_FLOAT", range(private$.values, na.rm = TRUE))
+      }
       private$.values
     },
 
@@ -108,22 +111,22 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
     #'   the physical units of the data variable in the netCDF resource.
     #' @return An instance of this class.
     initialize = function(grp, units) {
-      ncv <- grp$NCvars
+      ncv <- grp$NC$NCvars
       var <- ncv[[units[1L]]]
       if (is.null(ncv[["BinIndex"]]) || is.null(ncv[["BinList"]]) || (is.null(var)))
         stop("L3b: required netCDF variables not found.", call. = FALSE) # nocov
 
       # Read the index
-      private$.index <- RNetCDF::var.get.nc(grp$handle, "BinIndex", unpack = TRUE, fitnum = TRUE)
+      private$.index <- RNetCDF::var.get.nc(grp$NC$handle, "BinIndex", unpack = TRUE, fitnum = TRUE)
       lat_len <- length(private$.index$start)
 
       # Latitude axis
       lat_rows <- which(private$.index$begin > 0)
       private$.file_rows <- as.integer(range(lat_rows))
-      lat <- CFAxisLatitude$new("latitude", values = (private$.file_rows[1L]:private$.file_rows[2L] - 0.5) * 180 / lat_len - 90)
+      lat <- CFAxisLatitude$new("latitude", grp, values = (private$.file_rows[1L]:private$.file_rows[2L] - 0.5) * 180 / lat_len - 90)
       len <- as.integer(private$.file_rows[2L] - private$.file_rows[1L]) + 1L
       bnds <- (private$.file_rows[1L] - 1):private$.file_rows[2L] * 180 / lat_len - 90
-      lat$bounds <- CFBounds$new("lat_bnds", values = rbind(bnds[-len], bnds[-1L]))
+      lat$bounds <- CFBounds$new("lat_bnds", grp, values = rbind(bnds[-len], bnds[-1L]))
 
       # Longitude axis
       lon_bins <- private$.index$max[lat_len * 0.5]
@@ -132,10 +135,10 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
       expand <- lon_bins / private$.index$max[lat_rows]
       private$.file_bins[1L] <- min(floor(west * expand))
       private$.file_bins[2L] <- max(ceiling(east * expand))
-      lon <- CFAxisLongitude$new("longitude", values = (private$.file_bins[1L]:private$.file_bins[2L] - 0.5) * 360 / lon_bins - 180)
+      lon <- CFAxisLongitude$new("longitude", grp, values = (private$.file_bins[1L]:private$.file_bins[2L] - 0.5) * 360 / lon_bins - 180)
       bnds <- (private$.file_bins[1L]-1):private$.file_bins[2L] * 360 / lon_bins - 180
       len <- private$.file_bins[2L] - private$.file_bins[1L] + 1
-      lon$bounds <- CFBounds$new("lon_bnds", values = rbind(bnds[-len], bnds[-1L]))
+      lon$bounds <- CFBounds$new("lon_bnds", grp, values = rbind(bnds[-len], bnds[-1L]))
 
       axes <- list(
         latitude = lat,
@@ -151,21 +154,19 @@ CFVariableL3b <- R6::R6Class("CFVariableL3b",
         cft <- CFtime::CFTime$new("seconds since 1970-01-01", "proleptic_gregorian")
         cft <- cft + CFtime::parse_timestamps(cft, sprintf("%04d-%02d-%02dT12:00:00", ymd$year, ymd$month, as.integer(ymd$day)))$offset
         cft$set_bounds(matrix(tc$offsets, nrow = 2))
-        axes[["time"]] <- CFAxisTime$new("time", cft)
+        axes[["time"]] <- CFAxisTime$new("time", grp, cft)
       }
 
-      grp$CFaxes <- axes
-
       # CRS
-      gm <- CFGridMapping$new("geo", "latitude_longitude")
+      gm <- CFGridMapping$new("geo", grp, "latitude_longitude")
       gm$set_attribute("semi_major_axis", "NC_DOUBLE", 6378145)
       gm$set_attribute("inverse_flattening", "NC_DOUBLE", 0)
       gm$set_attribute("prime_meridian_name", "NC_CHAR", "Greenwich")
-      self$crs <- gm
-      self$set_attribute("grid_mapping", "NC_CHAR", "geo")
 
       # Construct the object
-      super$initialize(var, axes)
+      super$initialize(var, grp, axes)
+      self$crs <- gm
+      self$set_attribute("grid_mapping", "NC_CHAR", "geo")
       self$set_attribute("units", "NC_CHAR", units[2L])
       # FIXME
       ncv[["BinIndex"]]$CF <- ncv[["BinList"]]$CF <- self

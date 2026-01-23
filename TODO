@@ -1,5 +1,5 @@
 Every release
- - Update NEWS, README, vignettes, package description
+ - Update NEWS, README, vignettes, articles, package description
  - Update links
  - Any changes to CFtime? If so, release CFtime first
  - Update answers provided on SO
@@ -8,27 +8,34 @@ Every push to GitHub
  - Check the FIXMEs
  - Run document()
  - Run check()!
+ - Run test-all.R
+
+0.9
+ - What makes a CFVariable dirty? name, but that goes for any CF object. So only the data???
+ - CFCoordSys: coordinate system has the orientation of the axes. Each CFVariable has its own, totally independent copy
 
 Priority
- - CFDomain: domain has the orientation of the axes
- - CFAxisVertical: tests: V not subset, V subset, V subset parametric, V subset parametric auxiliary
+ - Dimensions (axes for CFVariable) can be added, deleted and permuted in CFData. Permutation detaches .NCobj
+ - Don't read auxiliary coordinates when opening a resource
+ - When subsetting on regular axes and a llgrid is present, attach the llgrid to the result, possibly subsetted itself.
+ - CFAxisVertical tests: V not subset, V subset, V subset parametric, V subset parametric auxiliary
  - CFAV$copy_terms
+ - CFAV$attach_to_group must attch parametric terms
  - CFVariable$profile with aux grid and parametric Z needs fixing
- - Testing on math and ops functions
  - Subset an already subsetted parametric vertical axis
  - Move most things to private, leave only user-facing methods and fields public
+ - Aggregation
+ - CFLabel attributes?
+ - Testing with ERA5 data
 
  - detach(): what about shared objects like axes, crs, llgrid?
- - Append with aux coordinates in the axes
+ - CFVariable$append with aux coordinates in the axes
  - Do something with CFObject$.data_oversized
  - Merge CFLabel into CFAxisCharacter??
- - AUxiliary coordinates subset & profile: must have both axes selected or none
  - Change reading of files: make an axis for every dimid that is referenced by NCvars
- - Write NetCDF files for CFDataset and from scratch
  - Add data to an unlimited dimension, write to file
  - crossing the dateline: subset() and AOI. CFVariableBase has a central_meridian private field and a cm active field - when set the longitude axis is set to -180 - 180 centered on the cm. Unsetting takes it back to the file setting. If data is loaded it is reordered as necessary, otherwise the data is extracted according to the cm setting.
 
- - Chunking
  - Selecting with logical expressions: CFVariable$subset(time >= "2001-01-01", lon > 40 && lon < 60)
  - Do something intelligent with AOI
  - ACDD
@@ -42,19 +49,44 @@ Future
  - subset() with multiple discontinuous labels
  - Fix auxll caching when same aoi is set
  - Support more manipulation on attributes: merge
- - Collect non-standard evaluations in `nse` field in CFObject: report messages/warnings at the end of opening
-      * dimension without NC variable, axis designation from name, CRS without grid_mapping when not lat-long
  - GridMapping with methods to query CRS elements, check identical CRSes
- - CFVariable$subset(subset, resample, method, closed): subset geeft bounds along each axis,
- resample is resolution in every axis direction, method in (nn, linear), closed also per axis. See SciPy::interpn
- - Analyze if sources belong together -> aggregation in CF terms
+ - CFVariable$subset(subset, resample, method, closed): subset geeft bounds along each axis, resample is resolution in every axis direction, method in (nn, linear), closed also per axis. See SciPy::interpn
  - THREDDS catalog
  - DSG
 
-Notes:
- - CF objects should never read (or write) data themselves. The underlying NC
- objects could be in groups other than the CF object, such as ancillary CVs or
- formula terms. Pass the read/write request off to the respective NC object instead or at least get the handle from there.
+CF VARIABLE OWNERSHIP HIERARCHY
+* CFVariable
+  * CFAxis
+    * CFBounds
+    * CFVerticalParametricTerm
+    * CFLabel
+  * CFGridMapping
+  * CFAuxLongLat
+  * CFCellMeasure
+  * Ancillary variables
+
+CF OBJECT INHERITANCE
+* CFObject
+  * CFGroup
+  * CFData
+    * CFAxis
+      * CFAxisCharacter
+      * CFAxisDiscrete
+      * CFAxisNumeric
+        * CFAxisLongitude
+        * CFAxisLatitude
+        * CFAxisVeritcal
+      * CFAxisTime
+    * CFBounds
+    * CFLabel
+    * CFVariable
+      * CFVariableL3b
+      * CFVerticalParametricTerm
+  * CFGridMapping
+* CFAuxiliaryLongLat
+* CFCellMeasure
+* CFStandardNames
+* CFDataset
 
 INTERESTING DATA
 Sentinel5p: "/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/starsdata/sentinel5p/S5P_NRTI_L2__NO2____20180717T120113_20180717T120613_03932_01_010002_20180717T125231.nc"
@@ -71,3 +103,5 @@ https://thredds.nci.org.au
 INTERESTING PACKAGES
 metR
 pastclim
+
+PAT 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

@@ -11,7 +11,7 @@ Support for accessing and interpreting netCDF datasets in a familiar R style.
 Built on top of the \href{https://cran.r-project.org/package=RNetCDF}{\code{RNetCDF} package}, built and maintained by
 the developers of the \code{netcdf} library, package \code{ncdfCF} provides high-level
 access to netCDF resources. Resources are matched against the \href{https://cfconventions.org/}{Climate and Forecast (CF) Metadata Conventions} for climate
-and forecasting data, current version 1.12. The CF Metadata Conventions is
+and forecasting data, current version 1.13. The CF Metadata Conventions is
 widely used for distributing files with climate observations or projections,
 including the Coupled Model Intercomparison Project (CMIP) data used by
 climate change scientists and the Intergovernmental Panel on Climate Change
@@ -65,13 +65,16 @@ inferences can be made about a netCDF resource.
 A \link{CFDataset} is the object that contains a netCDF resource. This is the main
 class that you need to access netCDF data from a file or an online resource.
 \itemize{
+\item \code{create_ncdf()}: Create a new CF data set.
 \item \code{show()}: Print information about the data set to the console. This will
 print some information on the resource, as well as all identified data
-variables, axes, and the global attributes.
+variables and the global attributes.
 \item \code{name}: The name of the data set.
 \item \code{conventions}: The conventions that this data set complies with. There
 could be multiple conventions listed in a single character string. CF
 Metadata Conventions use a "CF-1.*" label.
+\item \code{var_names()}, \code{axis_names}: Return a character vector with the names of the
+objects.
 \item \code{variables()}, \code{axes()}, \code{attributes()}: Return a \code{list} or \code{data.frame} with
 all objects of the specific type found in the data set.
 \item \code{find_by_name()}: Find a named object in the data set. This can be a data
@@ -90,6 +93,7 @@ group.
 \itemize{
 \item \code{\link[=names]{names()}}: Vector of names of the data variables in the data set.
 \item \code{\link[=dimnames]{dimnames()}}: Vector of names of the axes in the data set.
+\item \code{\link[=group]{group()}}: Vector of groups defined in the data set.
 }
 
 \strong{Data variable}
@@ -143,8 +147,8 @@ of the axis values and a final data value.
 \emph{\strong{New data variables}}
 
 New \code{CFVariable} objects can be constructed from R vectors, matrices or
-arrays, optionally creating axes from dimnames on the R object, using the
-\code{\link[=as_CF]{as_CF()}} function.
+arrays, optionally creating axes from dimnames on the R object, or a
+\code{terra::SpatRaster} using the \code{\link[=as_CF]{as_CF()}} function.
 
 \emph{\strong{S3 methods for CFVariable}}
 \itemize{
@@ -224,6 +228,7 @@ auxiliary coordinates associated with the axis.
 Useful links:
 \itemize{
   \item \url{https://github.com/R-CF/ncdfCF}
+  \item \url{https://r-cf.github.io/ncdfCF/}
   \item Report bugs at \url{https://github.com/R-CF/ncdfCF/issues}
 }
 

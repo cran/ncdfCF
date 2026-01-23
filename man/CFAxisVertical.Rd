@@ -20,7 +20,7 @@ https://cfconventions.org/Data/cf-conventions/cf-conventions.html#parametric-ver
 https://www.myroms.org/wiki/Vertical_S-coordinate
 }
 \section{Super classes}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisVertical}
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{\link[ncdfCF:CFAxis]{ncdfCF::CFAxis}} -> \code{\link[ncdfCF:CFAxisNumeric]{ncdfCF::CFAxisNumeric}} -> \code{CFAxisVertical}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -50,6 +50,7 @@ will access the standard names table.}
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-CFAxisVertical-new}{\code{CFAxisVertical$new()}}
+\item \href{#method-CFAxisVertical-attach_to_group}{\code{CFAxisVertical$attach_to_group()}}
 \item \href{#method-CFAxisVertical-detach}{\code{CFAxisVertical$detach()}}
 \item \href{#method-CFAxisVertical-copy}{\code{CFAxisVertical$copy()}}
 \item \href{#method-CFAxisVertical-copy_with_values}{\code{CFAxisVertical$copy_with_values()}}
@@ -64,12 +65,12 @@ will access the standard names table.}
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="can_append"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-can_append'><code>ncdfCF::CFAxis$can_append()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="configure_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-configure_terms'><code>ncdfCF::CFAxis$configure_terms()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFAxis" data-id="copy_terms"><a href='../../ncdfCF/html/CFAxis.html#method-CFAxis-copy_terms'><code>ncdfCF::CFAxis$copy_terms()</code></a></span></li>
@@ -93,6 +94,7 @@ Create a new instance of this class.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$new(
   var,
+  group,
   values,
   start = 1L,
   count = NA,
@@ -106,9 +108,10 @@ Create a new instance of this class.
 \item{\code{var}}{The name of the axis when creating a new axis. When reading an
 axis from file, the \link{NCVariable} object that describes this instance.}
 
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
+
 \item{\code{values}}{Optional. The values of the axis in a vector. The values
-have to be numeric and monotonic. Ignored when argument \code{var} is a
-\code{NCVariable} object.}
+have to be numeric and monotonic.}
 
 \item{\code{start}}{Optional. Integer index where to start reading axis data
 from file. The index may be \code{NA} to start reading data from the start.}
@@ -122,6 +125,41 @@ axis. When an empty \code{data.frame} (default) and argument \code{var} is an
 netCDF resource.}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxisVertical-attach_to_group"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxisVertical-attach_to_group}{}}}
+\subsection{Method \code{attach_to_group()}}{
+Attach this verical axis to a group, including any
+parameteric terms. If there is another object with the same name in
+this group an error is thrown. For associated objects (such as bounds,
+etc), if another object with the same name is otherwise identical to
+the associated object then that object will be linked from the
+variable, otherwise an error is thrown.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$attach_to_group(grp, locations = list())}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{grp}}{An instance of \link{CFGroup}.}
+
+\item{\code{locations}}{Optional. A \code{list} whose named elements correspond to
+the names of objects associated with this axis, possibly including the
+axis itself. Each list element has a single character string indicating
+the group in the hierarchy where the object should be stored. As an
+example, if the variable has axes "lon" and "lat" and they should be
+stored in the parent group of \code{grp}, then specify \code{locations = list(lon = "..", lat = "..")}. Locations can use absolute paths or relative
+paths from group \code{grp}. The axis and associated objects that are not in
+the list will be stored in group \code{grp}. If the argument \code{locations} is
+not provided, all associated objects will be stored in this group.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Self, invisibly.
 }
 }
 \if{html}{\out{<hr>}}
@@ -146,7 +184,7 @@ Create a copy of this axis. The copy is completely separate
 from this instance, meaning that the copies of both this instance and
 all of its components are made as new instances.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$copy(name = "")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$copy(name = "", group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -154,6 +192,8 @@ all of its components are made as new instances.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -173,7 +213,7 @@ After this operation the attributes of the newly created axes may not
 be accurate, except for the "actual_range" attribute. The calling code
 should set, modify or delete attributes as appropriate.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$copy_with_values(name = "", values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$copy_with_values(name = "", group, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -181,6 +221,8 @@ should set, modify or delete attributes as appropriate.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{values}}{The values to the used with the copy of this axis.}
 }
@@ -241,6 +283,8 @@ setting them back for this axis.
 \describe{
 \item{\code{from}}{An instance of \code{CFAxisVertical} whose values to append to the
 values of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -260,7 +304,7 @@ here - they should be separately treated once all associated axes in
 the terms have been subset. That happens automatically in \code{CFVariable}
 methods which call the \code{subset_parametric_terms()} method.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$subset(name = "", rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxisVertical$subset(name = "", group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -268,6 +312,8 @@ methods which call the \code{subset_parametric_terms()} method.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed
 (default), will use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{rng}}{The range of indices whose values from this axis to include in
 the returned axis. If the value of the argument is \code{NULL}, return a

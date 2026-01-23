@@ -14,8 +14,8 @@ it can also be the values from an auxiliary coordinate set, in the form of
 a \link{CFLabel} instance. The coordinate set to use in display, selection and
 processing is selectable through methods and fields in this class.
 }
-\section{Super class}{
-\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{CFAxis}
+\section{Super classes}{
+\code{\link[ncdfCF:CFObject]{ncdfCF::CFObject}} -> \code{\link[ncdfCF:CFData]{ncdfCF::CFData}} -> \code{CFAxis}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
@@ -52,8 +52,8 @@ the active coordinate set is the primary axis coordinates.}
 \item{\code{coordinate_names}}{(read-only) Retrieve the names of the coordinate
 sets defined for the axis, as a character vector. The first element in
 the vector is the name of the axis and it refers to the values of the
-coordinates as stored in the netCDF file. Following elements refer to
-auxiliary coordinates.}
+coordinates of this axis. Following elements refer to auxiliary
+coordinates.}
 
 \item{\code{coordinate_range}}{(read-only) Retrieve the range of the coordinates
 of the axis as a vector of two values. The mode of the result depends on
@@ -63,7 +63,9 @@ the sub-type of the axis.}
 to use with the axis for printing to the console as well as for
 processing methods such as \code{subset()}.}
 
-\item{\code{unlimited}}{Logical to indicate if the axis is unlimited.}
+\item{\code{unlimited}}{Logical to indicate if the axis is unlimited. The
+setting can only be changed if the axis has not yet been wriiten to
+file.}
 
 \item{\code{time}}{(read-only) Retrieve the \code{CFTime} object associated with the
 axis. Always returns \code{NULL} but \code{CFAxisTime} overrides this field.}
@@ -91,6 +93,7 @@ has dimensional coordinates. Always \code{FALSE} for all axes except for
 \item \href{#method-CFAxis-copy_with_values}{\code{CFAxis$copy_with_values()}}
 \item \href{#method-CFAxis-subset}{\code{CFAxis$subset()}}
 \item \href{#method-CFAxis-indexOf}{\code{CFAxis$indexOf()}}
+\item \href{#method-CFAxis-attach_to_group}{\code{CFAxis$attach_to_group()}}
 \item \href{#method-CFAxis-write}{\code{CFAxis$write()}}
 }
 }
@@ -99,12 +102,12 @@ has dimensional coordinates. Always \code{FALSE} for all axes except for
 <ul>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="append_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-append_attribute'><code>ncdfCF::CFObject$append_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attribute'><code>ncdfCF::CFObject$attribute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="attributes_identical"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-attributes_identical'><code>ncdfCF::CFObject$attributes_identical()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="delete_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-delete_attribute'><code>ncdfCF::CFObject$delete_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="dim"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-dim'><code>ncdfCF::CFObject$dim()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="print_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-print_attributes'><code>ncdfCF::CFObject$print_attributes()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="set_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-set_attribute'><code>ncdfCF::CFObject$set_attribute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="update_coordinates_attribute"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-update_coordinates_attribute'><code>ncdfCF::CFObject$update_coordinates_attribute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFObject" data-id="write_attributes"><a href='../../ncdfCF/html/CFObject.html#method-CFObject-write_attributes'><code>ncdfCF::CFObject$write_attributes()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="ncdfCF" data-topic="CFData" data-id="dim"><a href='../../ncdfCF/html/CFData.html#method-CFData-dim'><code>ncdfCF::CFData$dim()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -121,6 +124,7 @@ Creating a new axis is more easily done with the \code{\link[=makeAxis]{makeAxis
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$new(
   var,
+  group,
   values,
   start = 1L,
   count = NA,
@@ -134,6 +138,8 @@ Creating a new axis is more easily done with the \code{\link[=makeAxis]{makeAxis
 \describe{
 \item{\code{var}}{The name of the axis when creating a new axis. When reading an
 axis from file, the \link{NCVariable} object that describes this instance.}
+
+\item{\code{group}}{The \link{CFGroup} that this instance will live in.}
 
 \item{\code{values}}{Optional. The values of the axis in a vector. Ignored when
 argument \code{var} is a \code{NCVariable} object.}
@@ -293,8 +299,8 @@ method succeed with no result for the other descendant classes.
 \if{latex}{\out{\hypertarget{method-CFAxis-identical}{}}}
 \subsection{Method \code{identical()}}{
 Tests if the axis passed to this method is identical to
-\code{self}. This only tests for generic properties - class, length and name - with
-further assessment done in sub-classes.
+\code{self}. This only tests for generic properties - class, length, name
+and attributes - with further assessment done in sub-classes.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CFAxis$identical(axis)}\if{html}{\out{</div>}}
 }
@@ -342,7 +348,7 @@ sense that it does not do anything other than return \code{NULL}. This stub
 is here to make the call to this method succeed with no result for the
 \code{CFAxis} descendants that do not implement this method.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$copy(name = "")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$copy(name = "", group)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -350,6 +356,8 @@ is here to make the call to this method succeed with no result for the
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 }
 \if{html}{\out{</div>}}
 }
@@ -367,7 +375,7 @@ other than return \code{NULL}. This stub is here to make the call to this
 method succeed with no result for the \code{CFAxis} descendants that do not
 implement this method.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$copy_with_values(name = "", values)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$copy_with_values(name = "", group, values)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -375,6 +383,8 @@ implement this method.
 \describe{
 \item{\code{name}}{The name for the new axis. If an empty string is passed, will
 use the name of this axis.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{values}}{The values to the used with the copy of this axis.}
 }
@@ -394,13 +404,15 @@ than return \code{self}. This stub is here to make the call to this method
 succeed with no result for the  \code{CFAxis} descendants that do not
 implement this method.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$subset(name = "", rng = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$subset(name = "", group, rng = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{name}}{The name for the new axis if the \code{rng} argument is provided.}
+
+\item{\code{group}}{The \link{CFGroup} where the copy of this axis will live.}
 
 \item{\code{rng}}{The range of indices whose values from this axis to include in
 the returned axis. If the value of the argument is \code{NULL}, return a
@@ -446,23 +458,48 @@ Numeric vector of the same length as \code{x}.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-CFAxis-write"></a>}}
-\if{latex}{\out{\hypertarget{method-CFAxis-write}{}}}
-\subsection{Method \code{write()}}{
-Write the axis to a netCDF file, including its attributes.
+\if{html}{\out{<a id="method-CFAxis-attach_to_group"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-attach_to_group}{}}}
+\subsection{Method \code{attach_to_group()}}{
+Attach this axis to a group. If there is another object with
+the same name in this group an error is thrown. For associated objects
+(such as bounds, etc), if another object with the same name is
+otherwise identical to the associated object then that object will be
+linked from the variable, otherwise an error is thrown.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{CFAxis$write(nc = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$attach_to_group(grp, locations = list())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{nc}}{The handle of the netCDF file opened for writing or a group in
-the netCDF file. If \code{NULL}, write to the file or group where the axis
-was read from (the file must have been opened for writing).}
+\item{\code{grp}}{An instance of \link{CFGroup}.}
+
+\item{\code{locations}}{Optional. A \code{list} whose named elements correspond to
+the names of objects associated with this axis, possibly including the
+axis itself. Each list element has a single character string indicating
+the group in the hierarchy where the object should be stored. As an
+example, if the variable has axes "lon" and "lat" and they should be
+stored in the parent group of \code{grp}, then specify \code{locations = list(lon = "..", lat = "..")}. Locations can use absolute paths or relative
+paths from group \code{grp}. The axis and associated objects that are not in
+the list will be stored in group \code{grp}. If the argument \code{locations} is
+not provided, all associated objects will be stored in this group.}
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+Self, invisibly.
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-CFAxis-write"></a>}}
+\if{latex}{\out{\hypertarget{method-CFAxis-write}{}}}
+\subsection{Method \code{write()}}{
+Write the axis to a netCDF file, including its attributes.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{CFAxis$write()}\if{html}{\out{</div>}}
+}
+
 \subsection{Returns}{
 Self, invisibly.
 }
