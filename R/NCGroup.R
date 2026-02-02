@@ -52,6 +52,8 @@ NCGroup <- R6::R6Class("NCGroup",
     #'   provides access to the netCDF resource.
     #' @return An instance of this class.
     initialize = function(id, name, attributes = data.frame(), parent, resource) {
+      private$.resource <- if (missing(resource)) parent$resource else resource
+
       if (is.na(id)) {
         if (is.null(parent)) {
           # Grab the root group from the resource
@@ -65,10 +67,13 @@ NCGroup <- R6::R6Class("NCGroup",
         }
       }
 
-      super$initialize(id, "group", attributes)
+      super$initialize(id, "group") # Attributes are set later
       private$.name <- name
       self$parent <- parent
-      private$.resource <- if (missing(resource)) parent$resource else resource
+      if (resource$can_write)
+        self$write_attributes("NC_GLOBAL", attributes)
+      else
+        private$.attributes <- attributes
     },
 
     #' @description Summary of the group printed to the console.

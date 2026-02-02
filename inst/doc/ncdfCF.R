@@ -48,6 +48,33 @@ str(ts)
                   X = c(29.6, 28.8),
                   Y = seq(-2, -1, by = 0.05)))
 
+## ----profile------------------------------------------------------------------
+rwa <- t2m$profile(longitude = c(30.07, 30.07, 29.74), latitude = c(-1.94, -1.58, -2.60), 
+                   .names = c("Kigali", "Byumba", "Butare"), .as_table = TRUE)
+head(rwa)
+attr(rwa, "value")
+
+## ----transect-----------------------------------------------------------------
+(trans29_74 <- t2m$profile(longitude = 29.74, .names = "lon_29_74"))
+
+## ----summarise----------------------------------------------------------------
+# Summarising hourly temperature data to calculate the daily maximum temperature
+t2m$summarise("tmax", max, "day")
+
+## ----summarise_multi----------------------------------------------------------
+# Function to calculate multiple daily stats
+# It is good practice to include a `na.rm` argument in all your functions
+daily_stats <- function(x, na.rm = TRUE) {
+  # x is the vector of values for one day
+  minmax <- range(x, na.rm = na.rm)
+  diurnal <- minmax[2L] - minmax[1L]
+  c(minmax, diurnal)
+}
+
+# Call summarise() with your own function
+# The `name` argument should have as many names as the function returns results
+(stats <- t2m$summarise(c("tmin", "tmax", "diurnal_range"), daily_stats, "day"))
+
 ## ----KtoC---------------------------------------------------------------------
 tsC <- ts - 273.15
 tsC$set_attribute("units", "NC_CHAR", "degrees_Celsius")
@@ -65,25 +92,32 @@ fn <- system.file("extdata", "tasmax_NAM-44_day_20410701-vncdfCF.nc", package = 
 ds <- open_ncdf(fn)
 tx <- ds[["tasmax"]]
 
-# Use the terra package for plotting
-# install.packages("terra")
-library(terra)
-
-# Get the data in exactly the way it is stored in the file, using `raw()`
+# Get the raw data as an R array
 tx_raw <- tx$raw()
 str(tx_raw)
-
-# Plot the data
-(r <- rast(tx_raw))
-plot(r)
 
 ## ----array--------------------------------------------------------------------
 tx_array <- tx$array()
 str(tx_array)
-r <- rast(tx_array)
-plot(r)
 
-## ----terra--------------------------------------------------------------------
-(r <- tx$terra())
-plot(r[[1]])
+## ----ggplot-------------------------------------------------------------------
+library(ggplot2)
+ggplot() + geom_ncdf(data = tx) + coord_equal() + scale_fill_viridis_c()
+
+## ----save, eval=FALSE---------------------------------------------------------
+# # Save a CFVariable instance to a netCDF file on disk
+# stats[["diurnal_range"]]$save("~/path/file.nc")
+
+## ----export-------------------------------------------------------------------
+# install.packages("data.table")
+library(data.table)
+head(dt <- ts$data.table())
+
+#install.packages("terra")
+suppressMessages(library(terra))
+(r <- stats[["diurnal_range"]]$terra())
+
+## ----stars--------------------------------------------------------------------
+suppressMessages(library(stars))
+(st <- st_as_stars(ts))
 

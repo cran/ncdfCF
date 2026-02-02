@@ -13,11 +13,13 @@ Every push to GitHub
 0.9
  - What makes a CFVariable dirty? name, but that goes for any CF object. So only the data???
  - CFCoordSys: coordinate system has the orientation of the axes. Each CFVariable has its own, totally independent copy
+ - Dimensions (axes for CFVariable) can be added, deleted and permuted in CFData. Permutation detaches .NCobj
+ - Add data to an unlimited dimension, write to file
+ - ACDD
+ - When subsetting on regular axes and a llgrid is present, attach the llgrid to the result, possibly subsetted itself.
 
 Priority
- - Dimensions (axes for CFVariable) can be added, deleted and permuted in CFData. Permutation detaches .NCobj
  - Don't read auxiliary coordinates when opening a resource
- - When subsetting on regular axes and a llgrid is present, attach the llgrid to the result, possibly subsetted itself.
  - CFAxisVertical tests: V not subset, V subset, V subset parametric, V subset parametric auxiliary
  - CFAV$copy_terms
  - CFAV$attach_to_group must attch parametric terms
@@ -31,21 +33,16 @@ Priority
  - detach(): what about shared objects like axes, crs, llgrid?
  - CFVariable$append with aux coordinates in the axes
  - Do something with CFObject$.data_oversized
- - Merge CFLabel into CFAxisCharacter??
  - Change reading of files: make an axis for every dimid that is referenced by NCvars
- - Add data to an unlimited dimension, write to file
  - crossing the dateline: subset() and AOI. CFVariableBase has a central_meridian private field and a cm active field - when set the longitude axis is set to -180 - 180 centered on the cm. Unsetting takes it back to the file setting. If data is loaded it is reordered as necessary, otherwise the data is extracted according to the cm setting.
 
- - Selecting with logical expressions: CFVariable$subset(time >= "2001-01-01", lon > 40 && lon < 60)
  - Do something intelligent with AOI
- - ACDD
  - Drop bounds, vertical parametrics, standard_names and auxgrid values and reload when needed, only when access to netCDF resource is present
  - Make a helper class to deal with axis coordinates. Compress when regular.
  - Labels are not necessarily associated with an axis. E.g. labels used in `cell_methods` where clause. Where to store these?
  - CFCellMethods: parse the attribute, check the values
 
 Future
- - CFData$plot(), using ncdfCF vignette (first attempt in R projects folder)
  - subset() with multiple discontinuous labels
  - Fix auxll caching when same aoi is set
  - Support more manipulation on attributes: merge
