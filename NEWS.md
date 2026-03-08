@@ -1,3 +1,13 @@
+# ncdfCF 0.8.2
+
+Patch release with bug fixes.
+
+#### API
+- When selecting auxiliary coordinates on an axis, printing a `CFVariable` using that axis will print the name of the active coordinates for that axis and its units, if set.
+
+#### Code
+- Fixed NC_CHAR label/axis dimensions.
+
 # ncdfCF 0.8.1
 
 Patch release with bug fixes and some new functionality.

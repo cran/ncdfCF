@@ -1,7 +1,7 @@
 Package: ncdfCF
 Type: Package
 Title: Easy Access to NetCDF Files with CF Metadata Conventions
-Version: 0.8.1
+Version: 0.8.2
 Authors@R: person("Patrick", "Van Laake", , "patrick@vanlaake.net", role = c("aut", "cre", "cph"))
 Description: Network Common Data Form ('netCDF') files are widely used for 
     scientific data. Library-level access in R is provided through packages 
@@ -32,8 +32,8 @@ BugReports: https://github.com/R-CF/ncdfCF/issues
 Config/testthat/edition: 3
 Config/Needs/website: rmarkdown
 NeedsCompilation: no
-Packaged: 2026-02-02 19:39:41 UTC; patrickvanlaake
+Packaged: 2026-03-08 20:00:23 UTC; patrickvanlaake
 Author: Patrick Van Laake [aut, cre, cph]
 Maintainer: Patrick Van Laake <patrick@vanlaake.net>
 Repository: CRAN
-Date/Publication: 2026-02-02 20:00:02 UTC
+Date/Publication: 2026-03-08 20:20:02 UTC

@@ -10,7 +10,10 @@ Every push to GitHub
  - Run check()!
  - Run test-all.R
 
+Write a paper on CF in R for some online journal.
+
 0.9
+ - CF-side methods should not use NC constructs, like in add_attribute(). NC data types should be inferred from eachother on the NC side, use R data types on the CF side
  - What makes a CFVariable dirty? name, but that goes for any CF object. So only the data???
  - CFCoordSys: coordinate system has the orientation of the axes. Each CFVariable has its own, totally independent copy
  - Dimensions (axes for CFVariable) can be added, deleted and permuted in CFData. Permutation detaches .NCobj
