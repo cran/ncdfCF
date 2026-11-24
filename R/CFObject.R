@@ -114,9 +114,12 @@ CFObject <- R6::R6Class("CFObject",
     #' @return Self, invisibly.
     attach_to_group = function(grp, locations = list()) {
       g <- grp$find_by_name(locations[[self$name]]) %||% grp
-      g$add_CF_object(self)
-      private$.group <- grp
-      private$.dirty <- TRUE
+      if (g$id != private$.group$id) {
+        private$.group$remove_CF_object(self$id)
+        g$add_CF_object(self)
+        private$.group <- g
+        private$.dirty <- TRUE
+      }
       invisible(self)
     },
 
@@ -150,6 +153,17 @@ CFObject <- R6::R6Class("CFObject",
       if (!nrow(val)) return(NA)
 
       val[[field]][[1L]]
+    },
+
+    #' @description Convert CF attributes in a data.frame into a named list, possibly
+    #' deleting some of the attributes.
+    #' @param delete Optional, character vector of attributes to exclude from the list.
+    #' @return A `list` of attributes.
+    attributes_as_list = function(delete = character(0)) {
+      atts <- self$attributes # data.frame
+      atts <- atts[!atts$name %in% delete, ]
+      atts <- setNames(if (is.list(atts$value)) atts$value else as.list(atts$value), atts$name)
+      lapply(atts, function(att) if (is.atomic(att) && length(att) > 1L) unname(as.list(att)) else att)
     },
 
     #' @description Print the attributes of the CF object to the console.
@@ -262,9 +276,9 @@ CFObject <- R6::R6Class("CFObject",
     #'   before the existing value. Default is `FALSE`.
     #' @return Self, invisibly.
     append_attribute = function(name, value, sep = "; ", prepend = FALSE) {
-      if (is.na(name) || !is.character(name) || length(name) != 1L)
+      if (!is.character(name) || length(name) != 1L || is.na(name))
         stop("Must name one attribute to append values for.", call. = FALSE)
-      if (is.na(name) || !is.character(name) || length(name) != 1L)
+      if (!is.character(value) || length(value) != 1L || is.na(value))
         stop("Value to append must be a single character string.", call. = FALSE)
 
       if (nchar(value) > 0L) {
@@ -338,7 +352,7 @@ CFObject <- R6::R6Class("CFObject",
         else {
           gnm <- grp$fullname
           if (gnm == "/")
-            private$.name
+            paste0("/", private$.name)
           else
             paste(gnm, private$.name, sep = "/")
         }

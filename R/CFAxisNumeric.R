@@ -59,8 +59,11 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
         dim <- var$group$find_dim_by_id(var$dimids)
         !is.null(dim) && var$name == dim$name
       } else TRUE
-      if (is_cv && !missing(values) && !(is.numeric(values) && .monotonicity(values)))
-        stop("Numeric axis must have numeric monotonic coordinates.", call. = FALSE) # nocov
+      if (is_cv && !missing(values) && is.numeric(values)) {
+        if (!.monotonicity(values))
+          stop("Numeric axis must have numeric monotonic coordinates", call. = FALSE) # nocov
+        private$.regular <- .is_regular(values)
+      }
 
       super$initialize(var, group, values = values, start = start, count = count, orientation = orientation, attributes = attributes)
     },
@@ -89,7 +92,7 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       if (units == "") cat("\n") else cat(" (", units, ")\n", sep = "")
 
       if (!is.null(private$.bounds))
-        private$.bounds$print(attributes = FALSE, ...)
+        private$.bounds$print_boundary_values()
       else cat("Bounds     : (not set)\n")
 
       private$print_details(...)
@@ -137,7 +140,7 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       # Single coordinate value
       if (len == 1L) {
         valid <- if (is.null(bnds)) .near(x, vals)
-                 else valid <- x >= bnds[1L, 1L] & x <= bnds[2L, 1L]
+                 else x >= bnds[1L, 1L] & x <= bnds[2L, 1L]
         valid[!valid] <- NA
         return(as.integer(valid))
       }
@@ -147,11 +150,10 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
         # No bounds so get the closest value
         idx <- stats::approx(vals, 1L:length(vals), x, method = method)$y
       } else {
-        # Axis has bounds so get the closest coordinate first, allow for extremes
-        idx <- .round.5down(stats::approx(vals, 1L:length(vals), x, method = "linear", rule = 2)$y)
-        # Test that `x` falls within the bounds of the coordinates
-        valid <- (bnds[1L, idx] <= x) & (x <= bnds[2L, idx])
-        idx[!valid] <- NA
+        # Axis has bounds so check that x is clamped in between bounds
+        idx <- stats::approx(bnds[1L,], 1L:len, x, method = method, rule = 1:2)$y
+        # Invalidate `x`s that exceed the upper boundary at that index
+        idx[x > bnds[2L, idx]] <- NA
       }
 
       if (method == "constant")
@@ -174,44 +176,20 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       if (private$.active_coords > 1L)
         private$.aux[[private$.active_coords - 1L]]$slice(rng)
       else {
-        # Note that axis coordinates may be monotonically decreasing.
         vals <- self$values
         if (is.null(vals)) return(NULL)
-        len <- length(vals)
         bnds <- self$bounds$values
         rng <- range(rng)
 
-        if (len == 1L) {
-          if (is.null(bnds)) {
-            if (rng[1L] <= vals && vals <= rng[2L]) c(1L, 1L) else NULL
-          } else {
-            if ((rng[1L] <= bnds[2L, 1L] && rng[2L] >= bnds[1L, 1L]) ||
-                (rng[2L] >= bnds[1L, 1L] && rng[1L] <= bnds[2L, 1L]))
-              c(1L, 1L)
-            else NULL
-          }
-        } else { # Axis has multiple coordinates
-          # Are the values in decreasing order?
-          inv <- vals[2L] < vals[1L]
-
-          if (is.null(bnds)) {
-            if (inv)
-              idx <- which(vals <= rng[2L] & vals >= rng[1L])
-            else
-              idx <- which(vals >= rng[1L] & vals <= rng[2L])
-            if (!length(idx)) NULL else range(idx)
-          } else {
-            if (inv) {
-              lo <- which(bnds[2L,] <= rng[2L])
-              hi <- which(bnds[1L,] >= rng[1L])
-            } else {
-              lo <- which(bnds[2L,] >= rng[1L])
-              hi <- which(bnds[1L,] <= rng[2L])
-            }
-            if (!length(lo) || !length(hi)) NULL
-            else as.integer(range(intersect(lo, hi)))
-          }
+        if (is.null(bnds)) {
+          idx <- which(vals >= rng[1L] & vals <= rng[2L])
+        } else {
+          lo <- pmin(bnds[1L, ], bnds[2L, ])
+          hi <- pmax(bnds[1L, ], bnds[2L, ])
+          idx <- which(hi >= rng[1L] & lo <= rng[2L])
         }
+
+        if (!length(idx)) NULL else as.integer(range(idx))
       }
     },
 
@@ -275,7 +253,7 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
     #'   `from` axis appended.
     append = function(from, group) {
       if (super$can_append(from) && .c_is_monotonic(self$values, from$values)) {
-        ax <- CFAxisNumeric$new(self$name, group = group, values = c(private$values, from$values),
+        ax <- CFAxisNumeric$new(self$name, group = group, values = c(self$values, from$values),
                                 orientation = self$orientation, attributes = self$attributes)
 
         if (!is.null(private$.bounds)) {
@@ -286,7 +264,7 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
 
         ax
       } else
-        stop("Axis values cannot be appended.", call. = FALSE)
+        stop("Axis values cannot be appended", call. = FALSE)
     },
 
     #' @description Return an axis spanning a smaller coordinate range. This
@@ -307,8 +285,9 @@ CFAxisNumeric <- R6::R6Class("CFAxisNumeric",
       else {
         rng <- range(rng)
         if (self$has_resource) {
-          ax <- CFAxisNumeric$new(private$.NCobj, group = group, start = private$.NC_map$start + rng[1L] -1L,
-                                  count = rng[2L] - rng[1L] + 1L, orientation = private$.orient,
+          nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
+          ax <- CFAxisNumeric$new(private$.NCobj, group = group, start = nc$start,
+                                  count = nc$count, orientation = private$.orient,
                                   attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name

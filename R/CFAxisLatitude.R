@@ -34,8 +34,10 @@ CFAxisLatitude <- R6::R6Class("CFAxisLatitude",
       self$set_attribute("standard_name", "NC_CHAR", "latitude")
       self$set_attribute("units", "NC_CHAR", "degrees_north")
 
-      if (!missing(values) && !.check_latitude_domain(values))
-        stop("Latitude coordinate values are not in the domain [-90, 90].", call. = FALSE) # nocov
+      if (!missing(values) && !.check_latitude_domain(values)) {
+        name <- if (inherits(var, "NCVariable")) var$name else var
+        warning("Latitude coordinate values for \"", name, "\" are not in the domain [-90, 90]", call. = FALSE)
+      }
     },
 
     #' @description Create a copy of this axis. The copy is completely separate
@@ -95,8 +97,9 @@ CFAxisLatitude <- R6::R6Class("CFAxisLatitude",
       else {
         rng <- range(rng)
         if (self$has_resource) {
-          ax <- CFAxisLatitude$new(private$.NCobj, group = group, start = private$.NC_map$start + rng[1L] - 1L,
-                                   count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
+          nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
+          ax <- CFAxisLatitude$new(private$.NCobj, group = group, start = nc$start,
+                                   count = nc$count, attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name
         } else {
@@ -117,9 +120,9 @@ CFAxisLatitude <- R6::R6Class("CFAxisLatitude",
     #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return A new `CFAxisLatitude` instance with values from this axis and
     #'   the `from` axis appended.
-    append = function(from) {
+    append = function(from, group) {
       if (super$can_append(from) && .c_is_monotonic(self$values, from$values)) {
-        ax <- CFAxisLatitude$new(self$name, group = group, values = c(private$values, from$values),
+        ax <- CFAxisLatitude$new(self$name, group = group, values = c(self$values, from$values),
                                  attributes = self$attributes)
 
         if (!is.null(private$.bounds)) {

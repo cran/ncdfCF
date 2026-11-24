@@ -97,6 +97,7 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
         if (yk$dekad[2L] == 36L) {
           yk$year[2L] <- yk$year[2L] + 1L
           yk$dekad[2L] <- 1L
+          mod[2L] <- 1L
         } else if (mod[2L] == 0L) {
           yk$dekad[2L] <- yk$dekad[2L] + 1L
           mod[2L] <- 1L
@@ -160,31 +161,32 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
         # Make a CFTime or CFClimatology instance
         units <- var$attribute("units")
         if (is.na(units))
-          stop("Could not create a CFTime object from the arguments.", call. = FALSE)
-        cal <- if (is.na(cal <- var$attribute("calendar"))) "standard" else cal
+          stop("Could not create a CFTime object from the arguments", call. = FALSE)
+        cal <- var$attribute("calendar")
+        cal <- if (is.na(cal) || cal == "gregorian") "standard" else cal
 
         bnds <- NULL
         clim <- var$attribute("climatology")
         if (!is.na(clim)) {
-          nc <- var$group$find_by_name(clim)
+          nc <- var$group$find_by_name(clim) # FIXME: Make this a FQN?
           if (is.null(nc)) {
-            warning("Unmatched `climatology` value '", clim, "' found in variable '", var$name, "'.", call. = FALSE)
-            stop("Could not create a CFClimatology object from the arguments.", call. = FALSE)
+            warning("Unmatched `climatology` value '", clim, "' found in variable '", var$name, "'", call. = FALSE)
+            stop("Could not create a CFClimatology object from the arguments", call. = FALSE)
           } else {
             bnds <- CFBounds$new(nc, group, start = c(1L, start), count = c(2L, count))
             t <- try(CFtime::CFClimatology$new(units, cal, values, bnds$values), silent = TRUE)
             if (inherits(t, "try-error"))
-              stop("Could not create a CFClimatology object from the arguments.", call. = FALSE)
+              stop("Could not create a CFClimatology object from the arguments", call. = FALSE)
           }
         } else {
           t <- try(CFtime::CFTime$new(units, cal, values), silent = TRUE)
           if (inherits(t, "try-error"))
-            stop("Could not create a CFTime object from the arguments.", call. = FALSE)
+            stop("Could not create a CFTime object from the arguments", call. = FALSE)
           bounds <- var$attribute("bounds")
           if (!is.na(bounds)) {
-            nc <- var$group$find_by_name(bounds)
+            nc <- var$group$find_by_name(bounds) # FIXME: Make this a FQN?
             if (is.null(nc))
-              warning("Unmatched `bounds` value '", bounds, "' found in variable '", var$name, "'.", call. = FALSE)
+              warning("Unmatched `bounds` value '", bounds, "' found in variable '", var$name, "'", call. = FALSE)
             else {
               bnds <- CFBounds$new(nc, group, start = c(1L, start), count = c(2L, count))
               t$bounds <- bnds$values
@@ -194,14 +196,15 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
         private$.tm <- t
         private$.bounds <- bnds
       } else
-        stop("When initializing by time axis name, must provide a `CFTime` instance as argument 'values'.", call. = FALSE) # nocov
+        stop("When initializing by time axis name, must provide a `CFTime` instance as argument 'values'", call. = FALSE) # nocov
 
       super$initialize(var, group, values = values, start = start, count = count, orientation = "T", attributes = attributes)
       self$set_attribute("standard_name", "NC_CHAR", "time")
-      if (!inherits(var, "NCVariable")) {
+      if (!inherits(var, "NCVariable"))
         self$set_attribute("units", "NC_CHAR", private$.tm$calendar$definition)
-        self$set_attribute("calendar", "NC_CHAR", private$.tm$calendar$name)
-      }
+      self$set_attribute("calendar", "NC_CHAR", private$.tm$calendar$name)
+
+      private$.regular <- .is_regular(values)
     },
 
     #' @description Summary of the time axis printed to the console.
@@ -225,7 +228,7 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       bndrng <- if (!is.null(time$get_bounds()))
         paste0(time$range(format = "", bounds = TRUE), collapse = " ... ")
       else "(not set)"
-      cat("Calendar   :", time$cal$name, "\n")
+      cat("Calendar   :", time$calendar$name, "\n")
       cat("Range      :", rng, "\n")
       cat("Bounds     :", bndrng, "\n")
 
@@ -247,7 +250,7 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     #' @return `TRUE` if the two axes are identical, `FALSE` if not.
     identical = function(axis) {
       super$identical(axis) &&
-      private$.tm$cal$is_equivalent(axis$time$cal) &&
+      private$.tm$cal$is_equivalent(axis$time$calendar) &&
       all(.near(private$.tm$offsets, axis$time$offsets))
     },
 
@@ -312,28 +315,17 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     #' @return A new `CFAxisTime` instance with values from this axis and the
     #'   `from` axis appended.
     append = function(from, group) {
-      ft <- from$time
-      if (super$can_append(from) && .c_is_monotonic(private$.tm$offsets, ft$offsets)) {
-        bnds <- if (is.null(private$.tm$bounds) || is.null(ft$bounds)) NULL
-                else cbind(private$.tm$bounds, ft$bounds)
-        if (class(private$.tm)[1L] == "CFClimatology")
-          time <- CFtime::CFClimatology$new(private$.tm$cal$definition, private$.tm$cal$name, c(private$.tm$offsets, ft$offsets), bnds)
-        else {
-          time <- CFtime::CFTime$new(private$.tm$cal$definition, private$.tm$cal$name, c(private$.tm$offsets, ft$offsets))
-          time$bounds <- bnds
-        }
-        ax <- CFAxisTime$new(self$name, group = group,
-                             values = time, attributes = self$attributes)
-
-        if (!is.null(private$.bounds)) {
-          new_bnds <- private$.bounds$append(from$bounds, group)
-          if (!is.null(new_bnds))
-            ax$bounds <- new_bnds
-        }
-
-        ax
-      } else
+      if (!super$can_append(from))
         stop("Axis values cannot be appended.", call. = FALSE)
+
+      new_time <- private$.tm + from$time
+      ax <- CFAxisTime$new(self$name, group = group,
+                           values = new_time, attributes = self$attributes)
+
+      ax$bounds <- if (is.null(b <- new_time$bounds)) NULL
+      else CFBounds$new(paste0(self$name, "_bnds"), group = group, values = b)
+
+      ax
     },
 
     #' @description Retrieve the indices of supplied values on the time axis.
@@ -379,7 +371,7 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
     #' @param rng The range of indices whose values from this axis to include in
     #'   the returned axis. If the value of the argument is `NULL`, return a
     #'   copy of the axis.
-    #' @return A new `CFAxisNumeric` instance covering the indicated range of
+    #' @return A new `CFAxisTime` instance covering the indicated range of
     #'   indices. If the value of the argument `rng` is `NULL`, return a copy of
     #'   `self` as the new axis.
     subset = function(name = "", group, rng = NULL) {
@@ -388,9 +380,9 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       else {
         rng <- as.integer(range(rng))
         if (self$has_resource) {
+          nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
           ax <- CFAxisTime$new(private$.NCobj, group = group, values = self$values[rng[1L]:rng[2L]],
-                               start = private$.NC_map$start + rng[1L] - 1L,
-                               count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
+                               start = nc$start, count = nc$count, attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name
         } else {
@@ -404,15 +396,82 @@ CFAxisTime <- R6::R6Class("CFAxisTime",
       }
     },
 
-    #' @description Write the axis to a netCDF file, including its attributes.
-    #' If the calendar name is "gregorian", it will be set to the functionally
-    #' identical calendar "standard" as the former is deprecated.
-    #' @return Self, invisibly.
-    write = function() {
-      time <- private$.tm
-      if (time$cal$name == "gregorian")
-        self$set_attribute("calendar", "NC_CHAR", "standard")
-      super$write()
+    #' @description The attributes of this axis that are written with the
+    #'   GeoZarr coordinates of the axis. Attributes that are structural and are
+    #'   managed by the GeoZarr convention are left out.
+    #' @return A named `list` of attributes.
+    geozarr_attributes = function() {
+      atts <- super$geozarr_attributes()
+      atts[c("calendar", "climatology_bounds")] <- NULL
+      atts
+    },
+
+    #' @description Create the GeoZarr coordinates for this time axis. If the
+    #'   coordinate values are not regular and longer than a set minimum, write
+    #'   the coordinates to the group as a new Zarr array if it does not yet
+    #'   exist. This will also include boundary values.
+    #' @param grp An instance of `zarr_group` where the coordinates will be
+    #'   located in the Zarr store. The coordinates will be written to a new
+    #'   Zarr array with the name based on the axis name if it is irregular and
+    #'   long.
+    #' @return An instance of [geozarr::CoordinatesTime].
+    geozarr_coordinates = function(grp) {
+      len <- self$length
+      vals <- self$time$offsets
+      dir <- if (len == 1L) "OTHER" else "FUTURE"
+
+      unit <- private$.tm$unit
+      cal <- private$.tm$calendar
+      calendar <- cal$name
+      epoch <- cal$origin_date
+      epoch_time <- cal$origin_time
+      if (epoch_time != "00:00:00")
+        epoch <- paste(epoch, epoch_time, sep = "T")
+
+      # Attributes that are structural are by the convention being used
+      # so filter them out before writing. Add the reworked attributes.
+      atts <- self$geozarr_attributes()
+      atts$unit <- unit
+      atts$epoch <- epoch
+
+      # Boundary values
+      bnds <- private$.bounds$values
+      if (!is.null(bnds)) {
+        if (.is_regular(vals - bnds[1L,]) && .is_regular(bnds[2L,] - vals))
+          # Regular, get up and down interval
+          bnds <- c(bnds[1L,1L] - vals[1L], bnds[2L,1L] - vals[1L])
+        else
+          # Irregular, write array to the Zarr group
+          private$.bounds$write_geozarr(grp, paste0(self$name, "_bounds"), self$name)
+      }
+
+      # Irregular
+      if (!private$.regular && self$length > geozarr::geozarr_options()$max_explicit) {
+        # Create a Zarr array for the axis coordinates if it does not already exist
+        if (is.null(grp$children[[self$name]])) {
+          ab <- zarr::array_builder$new()
+          ab$shape <- len
+          ab$data_type <- switch(storage.mode(vals),
+                                 "double" = "float64",
+                                 "integer" = "int32")
+          ab$chunk_shape <- len
+          if (len > zarr::zarr_options()$min_compress)
+            ab$add_codec("blosc", list(clevel = 6L))
+          meta <- ab$metadata()
+          meta$attributes <- atts
+          new_array <- try(grp$add_array(self$name, meta), silent = TRUE)
+          if (inherits(new_array, "try-error"))
+            stop("Could not create Zarr array with name", self$name, call. = FALSE)
+          new_array$write(vals)
+        }
+      }
+
+      # Filter some more attributes that we don't want inlined
+      atts$unit <- NULL
+      atts$calendar <- NULL
+      atts$epoch <- NULL
+
+      geozarr::CoordinatesTime$new(self$name, dir, unit, epoch, calendar, vals, bnds, atts)
     }
   ),
   active = list(

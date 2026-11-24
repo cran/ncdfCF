@@ -4,6 +4,18 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
                        "NC_USHORT", "NC_INT", "NC_UINT", "NC_INT64",
                        "NC_UINT64", "NC_FLOAT", "NC_DOUBLE", "NC_STRING")
 
+# NetCDF library default fill values (NUG Appendix B). These are used only to
+# decide if a `_FillValue` attribute denotes missing data or merely repeats the
+# library default. Values are compared as double, which for the 64-bit integer
+# types is approximate - good enough to recognise the default.
+nc_default_fill <- c("NC_BYTE" = -127, "NC_UBYTE" = 255, "NC_SHORT" = -32767,
+                     "NC_USHORT" = 65535, "NC_INT" = -2147483647,
+                     "NC_UINT" = 4294967295,
+                     "NC_INT64" = -9223372036854775806,
+                     "NC_UINT64" = 18446744073709551614,
+                     "NC_FLOAT" = 9.9692099683868690e+36,
+                     "NC_DOUBLE" = 9.9692099683868690e+36)
+
 # This function returns TRUE if argument storage_mode is compatible with the
 # nc_data argument, FALSE otherwise.
 .compatible_type <- function(storage_mode, nc_data) {
@@ -25,6 +37,104 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
          "integer64" = "NC_INT64",
          "logical"   = "NC_SHORT",
          "NC_NAT")
+}
+
+# Approximate byte size of a single element of the given netCDF data type.
+# Returns NA for an unrecognized type (the caller should then skip any
+# byte-based guard rather than block on an unknown quantity).
+.nc_type_size <- function(nc_type) {
+  switch(nc_type,
+         NC_BYTE = , NC_UBYTE = , NC_CHAR = 1L,
+         NC_SHORT = , NC_USHORT = 2L,
+         NC_INT = , NC_UINT = , NC_FLOAT = 4L,
+         NC_INT64 = , NC_UINT64 = , NC_DOUBLE = 8L,
+         NC_STRING = 8L,  # a floor: actual size is per-string and unknowable in advance
+         NA_integer_)
+}
+
+# Human-readable byte count for warning messages.
+.format_bytes <- function(bytes) {
+  units <- c("B", "KB", "MB", "GB", "TB")
+  e <- min(length(units) - 1L, max(0L, floor(log(max(bytes, 1), 1024))))
+  sprintf("%.1f %s", bytes / 1024^e, units[e + 1L])
+}
+
+# Plan a sequence of (start, count) sub-reads tiling the requested window,
+# each within budget_bytes, aligned to the native chunk grid where that
+# alignment is actually meaningful.
+#
+# shape, chunk_shape: integer vectors, same order as start/count.
+#   chunk_shape may be NULL for contiguous storage.
+# start, count: the requested window.
+# itemsize: bytes per element.
+# budget_bytes: cap on any single returned block, in bytes.
+#
+# Returns a list of `list(start = ..., count = ...)`.
+.chunk_plan <- function(shape, chunk_shape, start, count, itemsize, budget_bytes) {
+  if (itemsize > budget_bytes)
+    stop("Argument `budget_bytes` is smaller than a single element; cannot plan a read", call. = FALSE)
+
+  nd <- length(shape)
+  if (is.null(chunk_shape)) {
+    chunk_shape <- count
+    chunk_shape[1L] <- 1L  # contiguous storage: slab along the first dimension
+  }
+  chunk_shape <- as.integer(pmin(chunk_shape, shape))
+
+  last_idx     <- start + count - 1L
+  first_native <- (start - 1L) %/% chunk_shape
+  last_native  <- (last_idx - 1L) %/% chunk_shape
+  n_native     <- last_native - first_native + 1L
+  native_bytes <- prod(as.numeric(chunk_shape)) * itemsize
+
+  if (native_bytes <= budget_bytes) {
+    # One native chunk fits: try to GROUP several whole native chunks into
+    # one request, up to budget, growing whichever dimension has the most
+    # native chunks left to absorb.
+    group <- rep(1L, nd)
+    repeat {
+      grown <- FALSE
+      for (d in order(-(n_native / group))) {
+        if (group[d] >= n_native[d]) next
+        trial <- group; trial[d] <- group[d] + 1L
+        extent <- pmin(trial * chunk_shape, count)
+        if (prod(as.numeric(extent)) * itemsize > budget_bytes) next
+        group <- trial; grown <- TRUE
+        break
+      }
+      if (!grown) break
+    }
+    tile        <- pmin(group * chunk_shape, count)
+    grid_origin <- first_native * chunk_shape + 1L
+  } else {
+    # A single native chunk already exceeds budget: SHRINK below it, reducing
+    # the largest dimension(s) first. Every request that touches a given native
+    # chunk under this regime causes that chunk to be decompressed again
+    # internally -- unavoidable once the chunk itself doesn't fit the budget,
+    # not a defect of the tiling. This finds a tile that fits, via simple
+    # halving; not necessarily the largest one that would still fit.
+    tile <- chunk_shape
+    ord  <- order(-chunk_shape)
+    i <- 1L
+    while (prod(as.numeric(tile)) * itemsize > budget_bytes && i <= nd) {
+      d <- ord[i]
+      while (tile[d] > 1L && prod(as.numeric(tile)) * itemsize > budget_bytes)
+        tile[d] <- max(1L, tile[d] %/% 2L)
+      i <- i + 1L
+    }
+    tile        <- pmin(tile, count)
+    grid_origin <- start  # no alignment benefit within a single native chunk
+  }
+
+  seqs   <- lapply(seq_len(nd), function(d) seq(grid_origin[d], last_idx[d], by = tile[d]))
+  combos <- expand.grid(seqs, KEEP.OUT.ATTRS = FALSE)
+
+  lapply(seq_len(nrow(combos)), function(i) {
+    s_grid <- as.integer(combos[i, ])
+    e      <- pmin(s_grid + tile - 1L, last_idx)
+    s      <- pmax(s_grid, start)
+    list(start = s, count = as.integer(e - s + 1L))
+  })
 }
 
 # This function is a bare-bones implementation of `apply(X, MARGIN, tapply, INDEX, FUN, ...)`,
@@ -87,7 +197,7 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
   # Set dimensions. If FUN returns multiple values, FUN values are in the first
   # dimension.
   res <- unlist(res, recursive = FALSE, use.names = FALSE)
-  dims <- c(if(dimres > 1L) dimres, if (nl > 1L) nl, if (dl > 1L) d[-oper])
+  dims <- c(if(dimres > 1L) dimres, nl, if (dl > 1L) d[-oper])
   if (length(dims) > 1L)
     dim(res) <- dims
 
@@ -100,6 +210,20 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
   else
     # Separate FUN values into list elements
     asplit(res, 1L)
+}
+
+# Drop the leading dimension of length 1 from `x`, the factor level dimension
+# that .process.data() adds when it is called without a factor.
+.drop_level <- function(x) {
+  d <- dim(x)
+  if (length(d) > 1L) dim(x) <- d[-1L]
+  x
+}
+
+# Reduce `X` along dimension `oper` with `FUN`, giving an array with the other
+# dimensions of `X`, or a single value if `X` is a vector.
+.reduce_block <- function(X, oper, FUN, ...) {
+  .drop_level(.process.data(X, oper, FUN = FUN, ...)[[1L]])
 }
 
 #' Make a data.frame slimmer by shortening long strings. List elements are
@@ -161,8 +285,7 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
 #' Round values `x` with .5 being rounded down.
 #' @noRd
 .round.5down <- function(x) {
-  posneg <- sign(x)
-  trunc(abs(x) + 0.5 - CF$eps) * posneg
+  trunc(abs(x) + 0.5 - CF$eps) * sign(x)
 }
 
 #' Test if vectors `x` and `y` have near-identical values.
@@ -198,6 +321,20 @@ netcdf_data_types <- c("NC_BYTE", "NC_UBYTE", "NC_CHAR", "NC_SHORT",
       else (y[1L] > y[2L]) && (xlast > y[1L]) && !.near(xlast, y[1L])
     }
   }
+}
+
+#' Test if vector `x` is regular, meaning the difference between successive
+#' values is constant, possibly 0.
+#' @noRd
+.is_regular <- function(x, tolerance = CF$eps) {
+  if (length(x) == 1L) return(FALSE)
+  d <- diff(x)
+  isTRUE(all.equal(d, rep(d[1L], length(d)), tolerance))
+}
+
+.history_entry <- function(text) {
+  paste0(format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+         " ncdfCF ", utils::packageVersion("ncdfCF"), ": ", text)
 }
 
 unused_imports <- function() {

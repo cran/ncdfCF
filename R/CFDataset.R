@@ -48,9 +48,7 @@ CFDataset <- R6::R6Class("CFDataset",
     initialize = function(resource, format) {
       if (inherits(resource, "NCResource")) {
         uri <- resource$uri
-        self$name <- regmatches(uri, regexec("([^/]*)\\.nc$", uri))[[1L]][2L]
-        if (is.na(self$name))
-          self$name <- regmatches(uri, regexec("([^/]*)$", uri))[[1L]][2L]
+        self$name <- sub("\\.nc(ml)?$", "", basename(uri))
 
         private$.res <- resource
         private$.format <- format
@@ -91,7 +89,7 @@ CFDataset <- R6::R6Class("CFDataset",
 
     #' @description Print the group hierarchy to the console.
     hierarchy = function() {
-      cat("<NetCDF objects>", self$name, "\n")
+      cat("<CF objects>", self$name, "\n")
       hier <- self$root$hierarchy(1L, 1L)
       cat(hier, sep = "")
     },
@@ -111,10 +109,12 @@ CFDataset <- R6::R6Class("CFDataset",
     #'   the the netCDF resource; each list item is named for the variable or
     #'   axis.
     objects_by_standard_name = function(standard_name) {
-      nm <- c(sapply(self$root$variables(), function(v) v$attribute("standard_name")),
-              sapply(self$root$axes(), function(x) x$attribute("standard_name")))
+      objs <- c(self$variables(), self$axes())
+      nm <- lapply(objs, function(o) o$attribute("standard_name"))
+      names(nm) <- vapply(objs, function(o) o$name, character(1L))
+      nm <- nm[!is.na(nm)]
       if (missing(standard_name) || !nzchar(standard_name))
-        nm[lengths(nm) > 0L]
+        nm
       else
         names(nm[which(nm == standard_name)])
     },
@@ -295,14 +295,125 @@ CFDataset <- R6::R6Class("CFDataset",
         res$create()
         private$.res <- res
 
-        # Detach all data variables from old connection
+        # Detach all data variables and the groups from old connection
         lapply(self$variables(), function(v) v$detach())
+        self$root$detach()
       }
 
       self$root$write(recursive = TRUE)
       self$root$write_variables(pack, recursive = TRUE)
       private$.res$close()
       invisible(self)
+    },
+
+    #' @description Save the data set to a Zarr store with GeoZarr conventions,
+    #'   including its subordinate objects such as attributes, data variables,
+    #'   axes, CRS, etc. Every principal `CFVariable` will become a
+    #'   `geozarr_array` and every `CFGroup` a `zarr_group`. Ancillary data
+    #'   variables will typically become a `zarr_array`, i.e. an array not
+    #'   having GeoZarr convention attributes. Axes with regular coordinate
+    #'   values will be stored in the attributes, saving space and reducing the
+    #'   number of such ancillary arrays.
+    #'
+    #' @details The data set will have the same hierarchy in the Zarr store as
+    #'   in this data set, possibly anchored in some subgroup inside the Zarr
+    #'   store. It is highly recommended to use separate empty (or non-existing)
+    #'   groups to anchor multiple data sets in a single Zarr store to avoid the
+    #'   possibility of name collisions.
+    #'
+    #'   Supported GeoZarr conventions for supplying coordinates are `cs` and
+    #'   `spatial`. Due to the limited scope of the latter convention (North-up
+    #'   Y coordinates, no support for time or vertical coordinates, 3 axes at
+    #'   most) most Zarr arrays will use the `cs` convention. Supporting
+    #'   conventions, like `geolocation`, `proj` or `ref`, will be used as
+    #'   needed.
+    #'
+    #'   Zarr stores are organised differently than netCDF files, particularly
+    #'   when the `cs` convention is used. Coordinate variables are inlined in
+    #'   the attributes of the Zarr array when the coordinate values are
+    #'   regular, for instance. A Zarr store may also hold many more arrays than
+    #'   the netCDF file holding data variables; it has no inherent size
+    #'   limitation like netCDF. As a result, sharing objects between arrays is
+    #'   more relevant in Zarr. This can be for coordinate variables that are
+    #'   not regular (like monthly data with a time unit of "days") and thus
+    #'   stored externally to the array, but also for geolocation arrays,
+    #'   ancillary variables, external variables, etc. The `external` and
+    #'   `geolocation` arguments to this method can be used to specify where the
+    #'   different objects will be located in the Zarr store.
+    #' @param zarr Optional. Fully-qualified file name or URI indicating where
+    #'   to save the data set to, or a `zarr` object. If a file name or URI, it
+    #'   must point to an existing Zarr store where the data from this data set
+    #'   will be appended, or a new Zarr store will be created by that name and
+    #'   then it can not already exist. By convention, a new Zarr store should
+    #'   have a ".zarr" file name extension. If missing, a Zarr store will be
+    #'   created in memory.
+    #' @param anchor_group Optional. Path to a node in the Zarr store where this
+    #'   data set will be anchored. If the node does not yet exist, it will be
+    #'   created. A path must start from the root node of the Zarr store and be
+    #'   specified like "/subgroup/sub/here" with the anchor group of this data
+    #'   set starting at the indicated path. Defaults to the root of the Zarr
+    #'   store, "/". Alternatively, this may be a `zarr_group` to be used as the
+    #'   anchor group for this data set, in which case argument `zarr` must be a
+    #'   `zarr` object. If the `zarr` argument is not provided, this argument
+    #'   will be ignored.
+    #' @param external,geolocation Optional. A character string that gives the
+    #'   group in the Zarr store, relative to the `anchor_group`, where to store
+    #'   external coordinate arrays and geolocation arrays, respectively. These
+    #'   objects are typically shared between multiple Zarr arrays. The default
+    #'   value for the arguments is `"coordinates"` and `"geolocation`,
+    #'   repectively, i.e. groups located under the `anchor_group`. Starting the
+    #'   path on these arguments with `".."` allows one to locate these shared
+    #'   resources outside of the data set hierarchy indicated by the
+    #'   `anchor_group` argument. Any locations that do not exist will be
+    #'   created in the Zarr store.
+    #' @return The `zarr` object to which the data set was written.
+    geozarr = function(zarr, anchor_group = "/", external = "coordinates", geolocation = "geolocation") {
+      .check_geozarr_package()
+
+      # Get the `zarr` object, possibly in a new Zarr store
+      if (missing(zarr)) {
+        z <- zarr::create_zarr()
+        anchor_group <- "/"
+      } else if (inherits(zarr, "zarr")) {
+        z <- zarr
+      } else {
+        # zarr argument is a name. Open it or create it.
+        z <- try(zarr::create_zarr(zarr), silent = TRUE)
+        if (inherits(z, "try-error")) {
+          z <- try(zarr::open_zarr(zarr), silent = TRUE)
+          if (inherits(z, "try-error"))
+            stop("Could not open or create a Zarr store at ", zarr, call. = FALSE)
+        }
+      }
+
+      # Get the anchor group for this data set
+      if (inherits(anchor_group, "zarr_group")) {
+        if (!inherits(zarr, "zarr"))
+          stop("Data set anchor group must be a character path to a Zarr group", call. = FALSE)
+      } else {
+        target_group <- z$get_node(anchor_group)
+        if (is.null(target_group)) {
+          # Node does not yet exist so create it
+          nodes <- strsplit(anchor_group, "/", fixed = TRUE)[[1L]]
+          if (nzchar(nodes[1L]))
+            stop("Path to the data set anchor group must start with a slash '/'", call. = FALSE)
+          nodes <- nodes[-1L]
+          anchor_group <- z$root
+          while (length(nodes)) {
+            grp <- anchor_group$children[[nodes[1L]]]
+            if (is.null(grp))
+              grp <- anchor_group$add_group(nodes[1L])
+            anchor_group <- grp
+            nodes <- nodes[-1L]
+          }
+        } else
+          anchor_group <- target_group
+      }
+
+      # Write the root group of this data set, iterate over contained objects
+      self$root$write_geozarr(anchor_group, external, geolocation)
+
+      z
     }
   ),
   active = list(
@@ -337,18 +448,20 @@ CFDataset <- R6::R6Class("CFDataset",
     #' @field var_names (read-only) Vector of names of variables in this data set.
     var_names = function(value) {
       if (missing(value)) {
-        nm <- sapply(self$variables(), function(v) v$fullname)
-        names(nm) <- NULL
-        nm
+        if (self$has_subgroups())
+          vapply(self$variables(), function(v) v$fullname, character(1L), USE.NAMES = FALSE)
+        else
+          vapply(self$variables(), function(v) v$name, character(1L), USE.NAMES = FALSE)
       }
     },
 
     #' @field axis_names (read-only) Vector of names of axes in this data set.
     axis_names = function(value) {
       if (missing(value)) {
-        nms <- sapply(self$axes(), function(ax) ax$fullname)
-        names(nms) <- NULL
-        nms
+        if (self$has_subgroups())
+          vapply(self$axes(), function(ax) ax$fullname, character(1L), USE.NAMES = FALSE)
+        else
+          vapply(self$axes(), function(ax) ax$name, character(1L), USE.NAMES = FALSE)
       }
     }
   )
@@ -370,24 +483,15 @@ str.CFDataset <- function(object, ...) {
 #' @rdname dimnames
 #' @export
 names.CFDataset <- function(x) {
-  if (!length(x$variables()))
-    NULL
-  else if (x$has_subgroups())
-    paste0("/", gsub(".", "/", x$var_names, fixed = TRUE))
-  else
-    x$var_names
+  if (!length(x$variables())) NULL
+  else x$var_names
 }
 
 #' @export
 dimnames.CFDataset <- function(x) {
-  ax <- x$axes()
-  if (!length(ax))
-    NULL
-  else if (x$has_subgroups()) {
-    grps <- sapply(ax, function(z) z$group$fullname)
-    unique(paste0(ifelse(grps == "/", "/", paste0(grps, "/")), x$axis_names))
-  } else
-    unique(x$axis_names)
+  # Axis names are fully qualified when the data set has groups
+  if (!length(x$axes())) NULL
+  else unique(x$axis_names)
 }
 
 #' List the groups in the CF object, recursively.

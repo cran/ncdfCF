@@ -1,7 +1,7 @@
 Package: ncdfCF
 Type: Package
 Title: Easy Access to NetCDF Files with CF Metadata Conventions
-Version: 0.8.2
+Version: 0.9.0
 Authors@R: person("Patrick", "Van Laake", , "patrick@vanlaake.net", role = c("aut", "cre", "cph"))
 Description: Network Common Data Form ('netCDF') files are widely used for 
     scientific data. Library-level access in R is provided through packages 
@@ -11,7 +11,6 @@ Description: Network Common Data Form ('netCDF') files are widely used for
     data uses standard R subsetting operators and common function forms.
 License: MIT + file LICENSE
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 Imports: abind, CFtime, methods, R6, RNetCDF, stringr
 Collate: 'AOI.R' 'AOImethod.R' 'CFAuxiliaryLongLat.R' 'CFAxis.R'
         'CFAxisCharacter.R' 'CFAxisDiscrete.R' 'CFAxisLatitude.R'
@@ -20,20 +19,21 @@ Collate: 'AOI.R' 'AOImethod.R' 'CFAuxiliaryLongLat.R' 'CFAxis.R'
         'CFDataset.R' 'CFGridMapping.R' 'CFGroup.R' 'CFLabel.R'
         'NCObject.R' 'CFObject.R' 'CFStandardNames.R' 'CFVariable.R'
         'CFVariableL3b.R' 'CFVerticalParametricTerm.R' 'NCDimension.R'
-        'NCGroup.R' 'NCResource.R' 'NCVariable.R' 'makeCFObjects.R'
-        'ncdfCF-package.R' 'ops.R' 'plot.R' 'readCF.R' 'utils.R'
-        'wkt2.R' 'zzz.R'
-Suggests: data.table, ggplot2, knitr, rmarkdown, stars, terra, testthat
-        (>= 3.0.0), units
+        'NCGroup.R' 'NCResource.R' 'NCVariable.R' 'aggregate.R'
+        'makeCFObjects.R' 'ncdfCF-package.R' 'ops.R' 'plot.R'
+        'readCF.R' 'utils.R' 'wkt2.R' 'zarr.R' 'zzz.R'
+Suggests: data.table, geozarr (>= 0.4.0), ggplot2, knitr, rmarkdown,
+        stars, terra, testthat (>= 3.0.0), units, xml2, zarr (>= 1.0.1)
 VignetteBuilder: knitr
-Depends: R (>= 4.0)
+Depends: R (>= 4.4)
 URL: https://github.com/R-CF/ncdfCF, https://r-cf.github.io/ncdfCF/
 BugReports: https://github.com/R-CF/ncdfCF/issues
 Config/testthat/edition: 3
 Config/Needs/website: rmarkdown
+Config/roxygen2/version: 8.1.1
 NeedsCompilation: no
-Packaged: 2026-03-08 20:00:23 UTC; patrickvanlaake
+Packaged: 2026-11-24 10:06:49 UTC; patrickvanlaake
 Author: Patrick Van Laake [aut, cre, cph]
 Maintainer: Patrick Van Laake <patrick@vanlaake.net>
 Repository: CRAN
-Date/Publication: 2026-03-08 20:20:02 UTC
+Date/Publication: 2026-11-24 10:40:02 UTC

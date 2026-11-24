@@ -84,18 +84,16 @@ CFAuxiliaryLongLat <- R6::R6Class("CFAuxiliaryLongLat",
       # If there are any NULL values in aoi, use the bounds or extent
       expand <- FALSE
       if (is.null(aoi$latMin))
-        if (inherits(self$.boundsLong, "CFBounds")) {
-          aoi$extent <- c(self$.boundsLong$range(), self$.boundsLat$range())
+        if (inherits(private$.boundsLong, "CFBounds")) {
+          aoi$extent <- c(private$.boundsLong$range(), private$.boundsLat$range())
         } else {
           aoi$extent <- self$extent
           expand <- TRUE
         }
-      lonExt <- aoi$lonMax - aoi$lonMin
-      latExt <- aoi$latMax - aoi$latMin
 
       # Resolution, use supplied or calculate from grid
       if (is.null(aoi$resolution)) {
-        center <- self$sample_index(aoi$lonMin + lonExt * 0.5, aoi$latMin + latExt * 0.5)[1L,]
+        center <- self$sample_index((aoi$lonMin + aoi$lonMax) * 0.5, (aoi$latMin + aoi$latMax) * 0.5)[1L,]
         if (is.na(center[1L]))
           stop("Center of AOI contains no data so resolution cannot be derived. Please specify explicitly.", call. = FALSE)
         private$set_resolution(center)
@@ -107,12 +105,11 @@ CFAuxiliaryLongLat <- R6::R6Class("CFAuxiliaryLongLat",
         aoi$extent <- aoi$extent + c(-halfres[1L], halfres[1L], -halfres[2L], halfres[2L])
       }
 
-      # Update upper-left to match resolution
-      aoi$lonMax <- if (self$extent[1L] < 0)
-                      min(aoi$lonMin + private$.res[1L] * ceiling(lonExt / private$.res[1L]), 180)
-                    else
-                      min(aoi$lonMin + private$.res[1L] * ceiling(lonExt / private$.res[1L]), 360)
-      aoi$latMax <- min(aoi$latMin + private$.res[2L] * ceiling(latExt / private$.res[2L]), 90)
+      # Update upper-right to a whole number of AOI grid cells
+      res <- aoi$resolution
+      cells <- ceiling((aoi$extent[c(2L, 4L)] - aoi$extent[c(1L, 3L)]) / res - CF$eps)
+      aoi$lonMax <- min(aoi$lonMin + res[1L] * cells[1L], if (self$extent[1L] < 0) 180 else 360)
+      aoi$latMax <- min(aoi$latMin + res[2L] * cells[2L], 90)
 
       invisible(self)
     }
@@ -304,12 +301,63 @@ CFAuxiliaryLongLat <- R6::R6Class("CFAuxiliaryLongLat",
     #'   objects will be stored in this group.
     #' @return Self, invisibly.
     attach_to_group = function(grp, locations = list()) {
+      # FIXME: .varLong and .varLat do not have a group. attach_to_group() will
+      # then fail.
+      return()
+
       private$.varLong$attach_to_group(grp, locations)
       private$.varLat$attach_to_group(grp, locations)
       if (!is.null(private$.boundsLong))
         private$.boundsLong$attach_to_group(grp, locations)
       if (!is.null(private$.boundsLat))
         private$.boundsLat$attach_to_group(grp, locations)
+    },
+
+    #' @description Write the longitude and latitude grids, and their boundary
+    #'   values if set, to new Zarr arrays in a Zarr group. Arrays that already
+    #'   exist in the group, such as when written for another data variable
+    #'   that uses the same grids, are not written again.
+    #' @param grp The `zarr_group` to write the arrays to.
+    #' @param from The `zarr_group` holding the Zarr array of the data variable
+    #'   that refers to the grids. The references in the returned value are
+    #'   relative to that array.
+    #' @param dims Character vector of length 2 with the names of the axes of
+    #'   the data variable that the grids are defined over. This is the
+    #'   preferred way to get the names, see `.llgrid_dims()`. If omitted, the
+    #'   names are taken from the axes of the longitude variable, which fails
+    #'   for dimensions without a coordinate variable.
+    #' @return An instance of `geozarr::zarr_convention_geolocation` with the
+    #'   references to the arrays, to be set on a `geozarr::CoordinateSystem`.
+    write_geozarr = function(grp, from = grp, dims = NULL) {
+      lon <- private$.varLong
+      lat <- private$.varLat
+      if (is.null(dims))
+        dims <- vapply(lon$axes[1L:2L], function(ax) ax$name, character(1L), USE.NAMES = FALSE)
+
+      atts <- function(v) {
+        a <- v$attributes_as_list(delete = "bounds")
+        a$units <- "degree"
+        a
+      }
+      .write_zarr_array(grp, lon$name, lon, private$get_lon_values(), dims, atts(lon))
+      .write_zarr_array(grp, lat$name, lat, private$get_lat_values(), dims, atts(lat))
+
+      bl <- private$.boundsLong
+      bt <- private$.boundsLat
+      has_bnds <- !is.null(bl) && !is.null(bt)
+      if (has_bnds) {
+        bl$write_geozarr(grp, bl$name, dims)
+        bt$write_geozarr(grp, bt$name, dims)
+      }
+
+      # References relative to the data array: ".." is its group `from`
+      rel <- from$relative_path(grp)
+      ref <- function(name) paste(c("..", if (rel != ".") rel, name), collapse = "/")
+      geo <- geozarr::zarr_convention_geolocation$new()
+      geo$set("geodetic", ref(lon$name), ref(lat$name),
+              id = geozarr::zarr_conv_proj$new(list(code = "OGC:CRS84")),
+              x_bounds = if (has_bnds) ref(bl$name),
+              y_bounds = if (has_bnds) ref(bt$name))
     },
 
     #' @description Detach the latitude and longitude from an underlying netCDF

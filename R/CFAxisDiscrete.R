@@ -38,6 +38,7 @@ CFAxisDiscrete <- R6::R6Class("CFAxisDiscrete",
     initialize = function(var, group, start = 1L, count) {
       super$initialize(var, group)
       private$.values <- start:(start + count - 1L)
+      private$.regular <- TRUE
     },
 
     #' @description Summary of the axis printed to the console.
@@ -105,13 +106,9 @@ CFAxisDiscrete <- R6::R6Class("CFAxisDiscrete",
         lo <- private$.values[1L]
         hi <- private$.values[length(private$.values)]
         rng <- range(rng)
-        rng <- as.integer(c(ceiling(rng[1L]), floor(rng[2L])))
-        if (rng[2L] < lo || rng[1L] > hi) NULL
-        else {
-          if (rng[1L] < lo) rng[1L] <- lo
-          if (rng[2L] > hi) rng[2L] <- hi
-          rng
-        }
+        rng <- c(ceiling(rng[1L]), floor(rng[2L]))
+        if (rng[1L] > rng[2L] || rng[2L] < lo || rng[1L] > hi) NULL
+        else as.integer(c(max(rng[1L], lo), min(rng[2L], hi)))
       }
     },
 
@@ -145,7 +142,7 @@ CFAxisDiscrete <- R6::R6Class("CFAxisDiscrete",
     #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return A new `CFAxisDiscrete` instance with a length that is the sum of
     #'   the lengths of this axis and the `from` axis.
-    append = function(from) {
+    append = function(from, group) {
       if (super$can_append(from)) {
         CFAxisDiscrete$new(self$name, group = group, start = private$.values[1L], count = self$length + from$length)
       } else
@@ -159,7 +156,7 @@ CFAxisDiscrete <- R6::R6Class("CFAxisDiscrete",
       # The NCVariable object is transient and should not be written to file.
 
       # Try to find a NC dimension
-      ncobj <- private$.group$NC$find_by_name(self$name)
+      ncobj <- private$.group$NC$find_by_name(self$fullname)
       if (is.null(ncobj)) {
         # Create a new NC dimension on file
         private$.dimid <- NCDimension$new(id = NA, name = self$name, length = self$length,

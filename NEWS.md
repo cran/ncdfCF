@@ -1,3 +1,45 @@
+# ncdfCF 0.9.0
+
+This minor release has some new functionality, such as the ability to export to the Zarr format using GeoZarr encoding. Additionally, there are multiple stability improvements and bug fixes.
+
+#### API
+- `CFData$read_data()` and `$read_chunk()` have been made public. New `$read_window()` method.
+- Added `makeGroup()` function.
+- `CFAxis$identical()` can optionally assess attributes for equality.
+- `CFVariable$summarise()` returns `NULL` if the `era` argument falls entirely outside of the time axis of the variable.
+- Exporting data sets to GeoZarr using the `geozarr` package.
+- New function `aggregate_geozarr()` aggregates multiple CF data variables, e.g. the files of a CMIP6 or CORDEX run that is split over time, into a single GeoZarr array. It takes file names or `CFVariable` instances and aggregates along any axis, including scalar axes such as an ensemble member, as long as the coordinates are contiguous. Auxiliary label sets, an auxiliary longitude-latitude grid, the CRS, and the attributes of the data variables, axes and global attributes are carried over. Argument `external_coordinates` sets the group for external coordinate arrays and `verbose` reports progress per chunk written. Parametric vertical coordinates are not supported. `copy_to_geozarr()` copies the data of a `CFVariable` into an existing GeoZarr array in chunk-aligned tiles.
+- CF missing data attributes are translated to the GeoZarr conventions when writing a `CFVariable` to Zarr: `_FillValue` is no longer used as the Zarr `fill_value`, and `missing_value` and `valid_range` attributes are set instead.
+- New method `geozarr_attributes()` for the descendants of `CFAxis` returns the attributes that are written with the GeoZarr coordinates of an axis. Attributes `units` and `calendar` of a time axis are no longer written as attributes of its coordinates, because they are recorded as the time definition.
+
+#### Code
+- Code has been added to process data in chunks if a data request is too large for the available memory (as set by `CF.options$memory_cell_limit`). If the data is chunked, as may be the case with netCDF-4 data files, the processing will use chunks to minimize overhead (reading, decompressing) at the storage layer (HDF-5). Memory may still be exhausted if the caller requests too much data in one call but the internal processing functions (like `CFVariable$summarise()`) are now protected.
+- `CFAxisTime$append()` uses `CFtime` code for merging `CFTime` instances, allowing for instances with distinct but compatible definition to be merged.
+- Cross-referencing NC objects now uses the dimid for more robust code.
+- More consistent use of FQNs for dimensions, variables and axes.
+- Axes, axis boundary values and labels have a `regular` active field to flag if coordinates are regularly spaced.
+- Fixed writing a `CFVariable` to file having a length-1 axis in X-Y-Z-T.
+- Fixed retrieving data by index from virtual `CFVariable`.
+- Fixed indexing of numeric axis with one-sided boundary values.
+- Axes are built from the dimension ids of the netCDF variables, following the scoping rules of CF section 2.7 for groups. An axis is created for every dimension that is used by a variable, a discrete axis if there is no coordinate variable for the dimension.
+- `NC_CHAR` labels and character axes can be subset, also repeatedly, and are read in chunks like other data.
+- `CFVariable$raw()` sets the names of discrete axes as dimnames.
+- Fixed saving a data set opened from a netCDF file to a new file.
+- Fixed `append()` on numeric, latitude, longitude and vertical axes which only kept the coordinates of the appended axis.
+- Fixed `CFVariable$data.table()` when package `data.table` is not attached.
+- Fixed `CFVariable$summarise()` on data that is processed in chunks.
+- Fixed the WKT2 strings generated for several grid mappings, including Albers equal area, Lambert azimuthal equal area, Mercator, oblique Mercator and sinusoidal, as well as the false easting and northing of EPSG methods, and the lookup of ellipsoids and prime meridians.
+- Fixed `CFDataset$objects_by_standard_name()` and `dimnames()` of a `CFDataset`.
+- Fixed renaming of groups, variables and data objects on file.
+- The extent of an AOI on an auxiliary longitude-latitude grid is aligned to the resolution of the AOI rather than that of the grid.
+- Fixed the name of a data set opened from a Windows file path.
+- Fixed `as_CF()` for a `terra::SpatRaster` whose layer names do not start with the variable name, or with variable names that share a prefix.
+- Package `xml2` is now listed in Suggests.
+- Suggests packages `zarr` and `geozarr`.
+- Bumped R version to 4.4.
+- Multiple minor fixes.
+- Documentation update.
+
 # ncdfCF 0.8.2
 
 Patch release with bug fixes.

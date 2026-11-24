@@ -3,6 +3,7 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+has <- function(pkg) requireNamespace(pkg, quietly = TRUE)
 
 ## ----basic_example------------------------------------------------------------
 library(ncdfCF)
@@ -48,7 +49,7 @@ str(ts)
                   X = c(29.6, 28.8),
                   Y = seq(-2, -1, by = 0.05)))
 
-## ----profile------------------------------------------------------------------
+## ----profile, eval = has("data.table")----------------------------------------
 rwa <- t2m$profile(longitude = c(30.07, 30.07, 29.74), latitude = c(-1.94, -1.58, -2.60), 
                    .names = c("Kigali", "Byumba", "Butare"), .as_table = TRUE)
 head(rwa)
@@ -100,7 +101,7 @@ str(tx_raw)
 tx_array <- tx$array()
 str(tx_array)
 
-## ----ggplot-------------------------------------------------------------------
+## ----ggplot, eval = has("ggplot2")--------------------------------------------
 library(ggplot2)
 ggplot() + geom_ncdf(data = tx) + coord_equal() + scale_fill_viridis_c()
 
@@ -108,16 +109,17 @@ ggplot() + geom_ncdf(data = tx) + coord_equal() + scale_fill_viridis_c()
 # # Save a CFVariable instance to a netCDF file on disk
 # stats[["diurnal_range"]]$save("~/path/file.nc")
 
-## ----export-------------------------------------------------------------------
+## ----export_dt, eval = has("data.table")--------------------------------------
 # install.packages("data.table")
 library(data.table)
 head(dt <- ts$data.table())
 
+## ----export_terra, eval = has("terra")----------------------------------------
 #install.packages("terra")
 suppressMessages(library(terra))
 (r <- stats[["diurnal_range"]]$terra())
 
-## ----stars--------------------------------------------------------------------
+## ----stars, eval = has("stars")-----------------------------------------------
 suppressMessages(library(stars))
 (st <- st_as_stars(ts))
 

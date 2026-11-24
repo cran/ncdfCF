@@ -24,7 +24,7 @@ CFAxis <- R6::R6Class("CFAxis",
     .unlimited = FALSE,
 
     # The dimension id of the axis. This is set upon initialization.
-    .dimid = -1L,
+    .dimid = NA_integer_,
 
     # The CFBounds instance of this axis, if set, NULL otherwise.
     .bounds = NULL,
@@ -36,6 +36,9 @@ CFAxis <- R6::R6Class("CFAxis",
     # auxiliary coordinates or when underlying axis coordinates should be used,
     # it should be 1L.
     .active_coords = 1L,
+
+    # Flag if the axis coordinates are regular. Difference should not be 0.
+    .regular = FALSE,
 
     # Get the names of the auxiliary coordinate instances.
     aux_names = function() {
@@ -105,7 +108,7 @@ CFAxis <- R6::R6Class("CFAxis",
     initialize = function(var, group, values, start = 1L, count = NA, orientation = "", attributes = data.frame()) {
       orientation <- orientation[1L]
       if (!(orientation %in% c("X", "Y", "Z", "T", "")))
-        stop("Invalid orientation for the axis.", call. = FALSE) # nocov
+        stop("Invalid orientation for the axis", call. = FALSE) # nocov
 
       # Scalar axes don't have .NC_map, so catch NULL values from $copy() etc
       if (is.null(start)) start <- 1L
@@ -114,7 +117,7 @@ CFAxis <- R6::R6Class("CFAxis",
       super$initialize(var, group = group, values = values, start = start, count = count, attributes = attributes)
       if (inherits(var, "NCVariable")) {
         private$.unlimited <- if (private$.NCobj$ndims) private$.NCobj$dimension(1L)$unlim else FALSE
-        private$.dimid <- private$.NCobj$dimids[1L]
+        private$.dimid <- if (private$.NCobj$ndims) private$.NCobj$dimids[1L] else NA_integer_
       }
 
       private$.orient <- orientation
@@ -122,7 +125,7 @@ CFAxis <- R6::R6Class("CFAxis",
         self$set_attribute("axis", "NC_CHAR", orientation)
 
       if (missing(values) || is.null(values))
-        private$read_data()
+        self$read_data()
 
       self$delete_attribute("_FillValue")
     },
@@ -136,8 +139,8 @@ CFAxis <- R6::R6Class("CFAxis",
       cat("<", self$friendlyClassName, "> [", private$.id, "] ", private$.name, "\n", sep = "")
 
       fullname <- self$fullname
-      if (fullname != self$name)
-        cat("Path name:", fullname, "\n")
+      if (fullname != paste0("/", self$name))
+        cat("Path name  :", fullname, "\n")
 
       longname <- self$attribute("long_name")
       if (!is.na(longname) && longname != self$name)
@@ -153,19 +156,24 @@ CFAxis <- R6::R6Class("CFAxis",
     #' @description Some details of the axis.
     #' @return A 1-row `data.frame` with some details of the axis.
     brief = function() {
+      nm <- if (!is.null(ds <- self$group$data_set) && ds$has_subgroups())
+        self$fullname
+      else
+        self$name
+
       if (private$.active_coords > 1L) {
         longname <- private$.aux[[private$.active_coords - 1L]]$name
         units <- private$.aux[[private$.active_coords - 1L]]$attribute("units")
       } else {
         longname <- self$attribute("long_name")
-        if (is.na(longname) || longname == self$name) longname <- ""
+        if (is.na(longname) || longname == nm) longname <- ""
         units <- self$attribute("units")
       }
       len <- if (self$unlimited) paste0(self$length, "-U") else self$length
       if (is.na(units)) units <- ""
       else if (units == "1") units <- ""
 
-      data.frame(axis = private$.orient,  name = self$fullname, long_name = longname,
+      data.frame(axis = private$.orient, name = nm, long_name = longname,
                  length = len, values = "", unit = units)
     },
 
@@ -239,12 +247,14 @@ CFAxis <- R6::R6Class("CFAxis",
     #'   `self`. This only tests for generic properties - class, length, name
     #'   and attributes - with further assessment done in sub-classes.
     #' @param axis The `CFAxis` instance to test.
+    #' @param with_attributes Logical that indicates if the attributes are
+    #'   assessed for equality too. Default is `FALSE`.
     #' @return `TRUE` if the two axes are identical, `FALSE` if not.
-    identical = function(axis) {
+    identical = function(axis, with_attributes = FALSE) {
       class(self)[1L] == class(axis)[1L] &&
       self$length == axis$length &&
       self$name == axis$name &&
-      self$attributes_identical(axis$attributes)
+      (!with_attributes || self$attributes_identical(axis$attributes))
     },
 
     #' @description Tests if the axis passed to this method can be appended to
@@ -349,24 +359,28 @@ CFAxis <- R6::R6Class("CFAxis",
     #' @return Self, invisibly.
     write = function() {
       if (is.null(private$.NCobj)) {
+        grp <- private$.group$NC
+        if (is.null(grp))
+          stop("Axis ", self$name, " has no netCDF group.")
+
         # Try to find a NC variable and its associated dimension
-        ncobj <- private$.group$NC$find_by_name(self$name)
+        ncobj <- grp$find_by_name(self$fullname)
         if (is.null(ncobj)) {
           # Create a new NC dimension and variable on file.
           if (self$length == 1L && !private$.unlimited)
-            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = private$.group$NC,
+            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = grp,
                                              vtype = private$.data_type, dimids = NA)
           else {
             private$.dimid <- NCDimension$new(id = NA, name = self$name, length = self$length,
-                                              unlim = private$.unlimited, group = private$.group$NC)$id
-            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = private$.group$NC,
+                                              unlim = private$.unlimited, group = grp)$id
+            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = grp,
                                              vtype = private$.data_type, dimids = private$.dimid)
           }
         } else if (inherits(ncobj, "NCDimension")) {
           # NC dimension was found so NC variable does not exist
           if (self$length == ncobj$length && private$.unlimited == ncobj$unlim) {
             private$.dimid <- ncobj$id
-            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = private$.group$NC,
+            private$.NCobj <- NCVariable$new(id = NA, name = self$name, group = grp,
                                              vtype = private$.data_type, dimids = private$.dimid)
           } else
             stop("Incompatible dimension by this name already exists.", call. = FALSE)
@@ -391,12 +405,108 @@ CFAxis <- R6::R6Class("CFAxis",
 
       # Bounds
       if (!is.null(private$.bounds))
-        private$.bounds$write(self$name)
+        private$.bounds$write(private$.dimid)
 
       # Auxiliary coordinates
       lapply(private$.aux, function(l) {l$dimid <- private$.dimid; l$write()})
 
       invisible(self)
+    },
+
+    #' @description Create the GeoZarr coordinate system axis for this axis,
+    #'   inclusive of auxiliary coordinates. This includes boundary values.
+    #' @param grp An instance of `zarr_group` where the axis will be located in
+    #'   the Zarr store. The axis will be written to a new Zarr array with the
+    #'   name of the axis if it is irregular and long.
+    #' @return An instance of [geozarr::CoordinateSystemAxis].
+    geozarr_axis = function(grp) {
+      # parametric vertical, discrete?
+      all_crds <- lapply(c(self, private$.aux), function(crd) {
+        crd$geozarr_coordinates(grp)
+      })
+      orient <- private$.orient
+      if (!nzchar(orient)) orient <- " "
+      geozarr::CoordinateSystemAxis$new(self$name, orient, all_crds)
+    },
+
+    #' @description The attributes of this axis that are written with the
+    #'   GeoZarr coordinates of the axis. Attributes that are structural and are
+    #'   managed by the GeoZarr convention are left out.
+    #' @return A named `list` of attributes.
+    geozarr_attributes = function() {
+      self$attributes_as_list(delete = c("axis", "bounds", "units", "actual_range"))
+    },
+
+    #' @description Create the GeoZarr coordinates for this axis. If the
+    #'   coordinate values are not regular and longer than a set minimum, write
+    #'   the coordinates to the group as a new Zarr array if it does not yet
+    #'   exist. This will also include boundary values.
+    #' @param grp An instance of `zarr_group` where the coordinates will be
+    #'   located in the Zarr store. The coordinates will be written to a new
+    #'   Zarr array with the name based on the axis name if it is irregular and
+    #'   long.
+    #' @return An instance of [geozarr::Coordinates] or a descendant class.
+    geozarr_coordinates = function(grp) {
+      len <- self$length
+      orient <- self$orientation
+      vals <- self$values
+      dir <- if (len == 1L || !nzchar(orient) || !is.numeric(vals)) "OTHER"
+      else switch(orient, # CFAxisTime and CFAxisVertical override
+                  X = "EAST",
+                  Y = "NORTH")
+
+      unit <- self$attribute("units")
+      if (is.na(unit) || unit == "") unit <- "1"
+      else if (grepl("^degree(s?)(_?)(east|E)$", unit) ||
+               grepl("^degree(s?)(_?)(north|N)$", unit))
+        unit <- "degree"
+
+      # Boundary values
+      bnds <- private$.bounds$values
+      if (!is.null(bnds)) {
+        if (.is_regular(vals - bnds[1L,]) && .is_regular(bnds[2L,] - vals))
+          # Regular, get up and down interval
+          bnds <- c(bnds[1L,1L] - vals[1L], bnds[2L,1L] - vals[1L])
+        else
+          # Irregular, write array to the Zarr group
+          private$.bounds$write_geozarr(grp, paste0(self$name, "_bounds"), self$name)
+      }
+
+      # Attributes that are structural are managed by the convention used so
+      # filter them out before writing. Leave others that are descriptive of the
+      # data.
+      atts <- self$geozarr_attributes()
+
+      # Regular coordinate values
+      if (private$.regular)
+        return(geozarr::CoordinatesPacked$new(self$name, dir, unit,
+                                              c(vals[1L], vals[2L] - vals[1L]), len, bnds, atts))
+
+      # Irregular
+      if (self$length > geozarr::geozarr_options()$max_explicit) {
+        # Create a Zarr array for the axis coordinates if it does not already exist
+        if (is.null(grp$children[[self$name]])) {
+          ab <- zarr::array_builder$new()
+          ab$shape <- len
+          if (is.null(self$NC))
+            ab$data_type_from_storage.mode <- storage.mode(vals)
+          else
+            ab$data_type <- netcdf_to_zarr_data_type[[self$data_type]]
+          ab$chunk_shape <- len
+          if (len > zarr::zarr_options()$min_compress)
+            ab$add_codec("blosc", list(clevel = 6L))
+          meta <- ab$metadata()
+          meta$attributes <- atts
+          new_array <- try(grp$add_array(self$name, meta), silent = TRUE)
+          if (inherits(new_array, "try-error"))
+            stop("Could not create Zarr array with name", self$name, call. = FALSE)
+          new_array$write(vals)
+          new_array$dirty <- TRUE
+          new_array$save()
+        }
+      }
+
+      geozarr::CoordinatesIrregular$new(self$name, dir, unit, vals, bnds, atts)
     }
   ),
   active = list(
@@ -408,6 +518,8 @@ CFAxis <- R6::R6Class("CFAxis",
 
     #' @field dimid The netCDF dimension id of this axis. Setting this value to
     #' anything other than the correct value will lead to disaster.
+    #' The value is `NA` when there is no netCDF dimension, such as for a
+    #' scalar axis or an axis that has not been written to file.
     dimid = function(value) {
       if (missing(value))
         private$.dimid
@@ -440,7 +552,7 @@ CFAxis <- R6::R6Class("CFAxis",
     #'   you should use the `coordinates` field rather than this one.
     values = function(value) {
       if (missing(value))
-        private$read_data()
+        self$read_data()
     },
 
     #' @field coordinates (read-only) Retrieve the coordinate values of the
@@ -449,6 +561,13 @@ CFAxis <- R6::R6Class("CFAxis",
       if (missing(value))
         private$get_coordinates()
       # FIXME: Must be able to add coordinates too, f.i. in an unlimited axis.
+    },
+
+    #' @field regular (read-only) Flag if the numeric or time axis coordinates
+    #'   are regular, meaning equally spaced.
+    regular = function(value) {
+      if (missing(value))
+        private$.regular
     },
 
     #' @field bounds Set or retrieve the bounds of this axis as a [CFBounds]

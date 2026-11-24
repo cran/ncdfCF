@@ -11,15 +11,33 @@ create_ncdf <- function() {
 
   # Minimal attributes
   root$set_attribute("Conventions", "NC_CHAR", "CF-1.13")
-  root$set_attribute("history", "NC_CHAR", paste("Created with R package ncdfCF", utils::packageVersion("ncdfCF"), "on", format(Sys.time(), usetz = TRUE, digits = 0L)))
+  root$set_attribute("history", "NC_CHAR", .history_entry("Newly created."))
 
   ds$root <- root
   ds
 }
 
+#' Create a new group
+#'
+#' This function creates a new group for CF objects. Groups are organized in an
+#' hierarchy, starting with a root node. A root node is specified by an empty
+#' string for a name and with argument `parent_group = NULL`.
+#' @param name A name for the group. This must be a valid name for CF objects.
+#' The default value is the empty string "".
+#' @param parent_group Optionally, a parent for the current group. This must be
+#' an instance of `CFGroup` itself.
+#' @return A new instance of `CFGroup`.
+#' @export
+#' @examples
+#' root <- makeGroup()
+#' sub_group <- makeGroup("sub", root)
+makeGroup <- function(name = "", parent_group = NULL) {
+  CFGroup$new(name, parent_group)
+}
+
 #' Create an axis
 #'
-#' With this method you can create an axis to use with new [CFVariable]
+#' With this function you can create an axis to use with new [CFVariable]
 #' instances. Depending on the `orientation` argument and the type of the
 #' `values` argument an instance of a class descending from [CFAxis] will be
 #' returned.
@@ -47,7 +65,7 @@ create_ncdf <- function() {
 #'   [makeDiscreteAxis()]
 #' @return An instance of a class descending from [CFAxis].
 #' @export
-makeAxis <- function(name, orientation, values, bounds = NULL, attributes = data.frame(), group = NULL) {
+makeAxis <- function(name, orientation = "", values, bounds = NULL, attributes = data.frame(), group = NULL) {
   if (is.null(group))
     group <- CFGroup$new("", NULL)
   # FIXME: There could be an orientation X but with projected coordinates
@@ -202,8 +220,8 @@ makeTimeAxis <- function(name, values, attributes = data.frame(), group = NULL) 
 
   if (is.na(axis$attribute("standard_name")))
     axis$set_attribute("standard_name", "NC_CHAR", "time")
-  axis$set_attribute("units", "NC_CHAR", values$cal$definition)
-  axis$set_attribute("calendar", "NC_CHAR", values$cal$name)
+  axis$set_attribute("units", "NC_CHAR", values$calendar$definition)
+  axis$set_attribute("calendar", "NC_CHAR", values$calendar$name)
 
   if (!is.null(values$bounds)) {
     nm <- paste0(name, "_bnds")
@@ -365,11 +383,13 @@ as_CF.SpatRaster <- function(name, obj) {
     axes[["y"]]$set_attribute("standard_name", "NC_CHAR", "projected_y_coordinate")
   }
 
+  # Layers are selected by their source: layer names are unrelated to varnames
+  sid <- rep(seq_len(num_vars), terra::sources(obj, nlyr = TRUE)$nlyr)
   out <- vector("list", num_vars)
   for (v in seq_along(vars)) {
     var <- vars[v]
     # FIXME: Test if name is valid. If not, make it so.
-    rv <- obj[var]
+    rv <- obj[[which(sid == v)]]
     longname <- terra::longnames(rv)
 
     if (terra::has.time(rv)) {

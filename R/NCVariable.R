@@ -50,7 +50,7 @@ NCVariable <- R6::R6Class("NCVariable",
     # object whose data type you are looking for.
     .vtype = NULL,
 
-    # Vector of dimension identifiers that this variable uses.
+    # Vector of integer dimension identifiers that this variable uses.
     .dimids  = NULL,
 
     # Additional properties for a `netcdf4` resource.
@@ -65,7 +65,8 @@ NCVariable <- R6::R6Class("NCVariable",
     #' @param name Character string with the name of the netCDF object.
     #' @param group The [NCGroup] this variable is located in.
     #' @param vtype The netCDF data type of the variable.
-    #' @param dimids The identifiers of the dimensions this variable uses.
+    #' @param dimids The integer identifiers of the dimensions this variable
+    #'   uses.
     #' @param attributes Optional, `data.frame` with the attributes of the
     #'   object.
     #' @param netcdf4 Optional, `netcdf4`-specific arguments in the format of
@@ -77,7 +78,7 @@ NCVariable <- R6::R6Class("NCVariable",
         h <- group$handle
         id <- try(RNetCDF::var.def.nc(h, name, vtype, dimids), silent = TRUE) # FIXME netcdf4 attributes
         if (inherits(id, "try-error"))
-          id <- RNetCDF::var.inq.nc(h, name)
+          id <- RNetCDF::var.inq.nc(h, name)$id
       }
 
       super$initialize(id, name, attributes)
@@ -165,9 +166,10 @@ NCVariable <- R6::R6Class("NCVariable",
     #' @param new_name The new name for the NC variable
     #' @return Self, invisibly.
     set_name = function(new_name) {
-      if (new_name != private$.name && is.null(group$find_by_name(new_name)) &&
-          private$.resource$can_write) {
-        RNetCDF::var.rename.nc(private$.resource$handle, private$.name, new_name)
+      res <- private$.group$resource
+      if (new_name != private$.name && is.null(private$.group$find_by_name(new_name)) && # FIXME: Make this a FQN?
+          !is.null(res) && res$can_write) {
+        RNetCDF::var.rename.nc(private$.group$handle, private$.name, new_name)
         private$.name <- new_name
       }
       invisible(self)

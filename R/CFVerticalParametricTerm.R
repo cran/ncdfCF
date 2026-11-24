@@ -81,7 +81,7 @@ CFVerticalParametricTerm <- R6::R6Class("CFVerticalParametricTerm",
     #' @return The new parametric term object.
     subset = function(original_axis_names, new_axes, start, count, aux = NULL, ZT_dim = NULL) {
       if (!length(private$.axes))
-        return(CFVerticalParametricTerm$new(private$.NCobj, axes = list(), attributes = self$attributes))
+        return(CFVerticalParametricTerm$new(private$.NCobj, group = NULL, axes = list(), attributes = self$attributes))
 
       ord <- match(names(private$.axes), original_axis_names)
       new_axis_names <- sapply(new_axes, function(ax) ax$name)
@@ -89,16 +89,16 @@ CFVerticalParametricTerm <- R6::R6Class("CFVerticalParametricTerm",
       if (is.null(aux) || all(!(ord %in% aux_axes))) {
         # Regular axis subsetting
         # Assuming we have an NCvar here
-        CFVerticalParametricTerm$new(private$.NCobj, axes = new_axes[ord], start = start[ord],
+        CFVerticalParametricTerm$new(private$.NCobj, group = NULL, axes = new_axes[ord], start = start[ord],
                                      count = count[ord], attributes = self$attributes)
       } else {
         # Auxiliary grid warping, but only if this term includes the affected axes
         ZT_dim <- ZT_dim[ord[-(1L:2L)] - 2L] # Dimensions of all axes other than X and Y
-        d <- private$read_chunk(start[ord], count[ord])
+        d <- self$read_chunk(start[ord], count[ord])
         dim(d) <- c(aux$X[2L] * aux$Y[2L], prod(ZT_dim))
         d <- d[aux$index, ]
         dim(d) <- c(aux$box, ZT_dim)
-        CFVerticalParametricTerm$new(self$name, axes = new_axes[ord], values = d,
+        CFVerticalParametricTerm$new(self$name, group = NULL, axes = new_axes[ord], values = d,
                                      attributes = self$attributes)
       }
     }
@@ -120,7 +120,7 @@ CFVerticalParametricTerm <- R6::R6Class("CFVerticalParametricTerm",
     values = function(value) {
       if (missing(value)) {
         if (private$.nodata) 0
-        else private$read_data()
+        else self$read_data()
       }
     }
   )

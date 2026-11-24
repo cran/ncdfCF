@@ -10,7 +10,10 @@ CFLabel <- R6::R6Class("CFLabel",
   inherit = CFData,
   cloneable = FALSE,
   private = list(
-    .dimid = -1L     # The NC dimension identifier or -1L when virtual
+    .dimid = NA_integer_, # The NC dimension identifier(s) or NA when virtual
+
+    # Always FALSE because not relevant for character strings
+    .regular = FALSE
   ),
   public = list(
     #' @description Create a new instance of this class.
@@ -33,9 +36,9 @@ CFLabel <- R6::R6Class("CFLabel",
     initialize = function(var, group, values = NA, start = NA, count = NA) {
       super$initialize(var, group, values = values, start = start, count = count)
       if (inherits(var, "NCVariable"))
-        private$.dimid <- var$dimids
+        private$.dimid <- if (var$ndims) var$dimids else NA_integer_
       if (is.null(values) || (length(values) == 1L && is.na(values)))
-        private$read_data()
+        self$read_data()
     },
 
     #' @description  Prints a summary of the labels to the console.
@@ -80,6 +83,7 @@ CFLabel <- R6::R6Class("CFLabel",
           name <- self$name
         lbl <- CFLabel$new(name, group = group, values = self$values)
       }
+      lbl
     },
 
     #' @description Given a range of domain coordinate values, returns the
@@ -104,18 +108,19 @@ CFLabel <- R6::R6Class("CFLabel",
     #' @param rng The range of indices whose values from this axis to include in
     #'   the returned axis.
     #' @return A `CFLabel` instance, or `NULL` if the `rng` values are invalid.
-    subset = function(name, group, rng) {
+    subset = function(name = "", group, rng) {
       if (is.null(rng))
         self$copy(name, group)
       else {
-        if (missing(name)) name <- self$name
+        if (!nzchar(name)) name <- self$name
         rng <- as.integer(range(rng))
         if (rng[1L] < 1L || rng[2L] > self$length)
           NULL
         else {
           if (self$has_resource) {
+            nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
             l <- CFLabel$new(private$.NCobj, group = group, values = self$values[rng[1L]:rng[2L]],
-                             start = rng[1L], count = rng[2L] - rng[1L] + 1L)
+                             start = nc$start, count = nc$count)
             l$name <- name
             l
           } else
@@ -129,7 +134,7 @@ CFLabel <- R6::R6Class("CFLabel",
     write = function() {
       if (is.null(private$.NCobj)) {
         # Try to find a NC variable
-        ncobj <- private$.group$NC$find_by_name(self$name)
+        ncobj <- private$.group$NC$find_by_name(self$fullname)
         private$.NCobj <- if (is.null(ncobj))
           # Create a new NC variable
           NCVariable$new(id = NA, name = self$name, group = private$.group$NC,
@@ -141,6 +146,43 @@ CFLabel <- R6::R6Class("CFLabel",
       }
 
       self$write_attributes()
+    },
+
+    #' @description Create the GeoZarr coordinates for this label set. If the
+    #'   label set is longer than a set minimum, write the label values to the
+    #'   group as a new Zarr array if it does not yet exist.
+    #' @param grp An instance of `zarr_group` where the label values will be
+    #'   located in the Zarr store. The label values will be written to a new
+    #'   Zarr array with the name based on the name of this label set if it is
+    #'   irregular and long.
+    #' @return An instance of [geozarr::CoordinatesString].
+    geozarr_coordinates = function(grp) {
+      len <- self$length
+      vals <- self$values
+      atts <- self$attributes_as_list()
+
+      # Labels are always irregular
+      if (self$length > geozarr::geozarr_options()$max_explicit) {
+        # Create a Zarr array for the axis coordinates if it does not already exist
+        if (is.null(grp$children[[self$name]])) {
+          ab <- zarr::array_builder$new()
+          ab$shape <- len
+          ab$data_type <- "string"
+          ab$chunk_shape <- len
+          if (len > zarr::zarr_options()$min_compress)
+            ab$add_codec("blosc", list(clevel = 6L))
+          meta <- ab$metadata()
+          meta$attributes <- atts
+          new_array <- try(grp$add_array(self$name, meta), silent = TRUE)
+          if (inherits(new_array, "try-error"))
+            stop("Could not create Zarr array with name", self$name, call. = FALSE)
+          new_array$write(vals)
+          new_array$dirty <- TRUE
+          new_array$save()
+        }
+      }
+
+      geozarr::CoordinatesString$new(self$name, "OTHER", "1", vals, atts)
     }
   ),
   active = list(
@@ -156,9 +198,10 @@ CFLabel <- R6::R6Class("CFLabel",
     #'   detached from it.
     values = function(value) {
       if (missing(value)) {
-        private$read_data()
-      } else {
+        self$read_data()
+      } else if (length(value) == length(private$.values)) {
         private$set_values(value)
+        private$.regular <- if (is.numeric(value)) .is_regular(value) else FALSE
         self$detach()
       }
     },
@@ -180,9 +223,10 @@ CFLabel <- R6::R6Class("CFLabel",
       }
     },
 
-
     #' @field dimid The netCDF dimension id of this label set. Setting this
     #'   value to anything other than the correct value will lead to disaster.
+    #'   The value is `NA` when there is no netCDF dimension, such as for a
+    #'   label set that has not been written to file.
     dimid = function(value) {
       if (missing(value))
         private$.dimid

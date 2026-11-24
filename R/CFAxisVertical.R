@@ -379,25 +379,18 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
     #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return A new `CFAxisVertical` instance with values from this axis and
     #'   the `from` axis appended.
-    append = function(from) {
+    append = function(from, group) {
       if (super$can_append(from) && .c_is_monotonic(self$values, from$values)) {
-        ax <- CFAxisVertical$new(self$name, group = group, values = c(private$values, from$values),
-                                 attributes = self$attributes)
+        # The new axis has no parametric terms
+        atts <- self$attributes
+        atts <- atts[atts$name != "formula_terms", ]
+        ax <- CFAxisVertical$new(self$name, group = group, values = c(self$values, from$values),
+                                 attributes = atts)
 
         if (!is.null(private$.bounds)) {
           new_bnds <- private$.bounds$append(from$bounds, group)
           if (!is.null(new_bnds))
             ax$bounds <- new_bnds
-        }
-
-        if (self$is_parametric) {
-          # Delete all references to parametric terms
-          private$.parameter_name <- ""
-          private$.name_computed <- ""
-          private$.units_computed <- ""
-          private$.terms <- NULL
-          private$.computed_values <- NULL
-          self$delete_attribute("formula_terms")
         }
 
         ax
@@ -426,8 +419,9 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
       else {
         rng <- range(rng)
         if (self$has_resource) {
-          ax <- CFAxisVertical$new(private$.NCobj, group = group, start = private$.NC_map$start + rng[1L] - 1L,
-                                   count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
+          nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
+          ax <- CFAxisVertical$new(private$.NCobj, group = group, start = nc$start,
+                                   count = nc$count, attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name
         } else {
@@ -468,6 +462,74 @@ CFAxisVertical <- R6::R6Class("CFAxisVertical",
       terms$param <- new_params
       self$set_parametric_terms(self$attribute("standard_name"), terms)
       invisible(self)
+    },
+
+    #' @description The attributes of this axis that are written with the
+    #'   GeoZarr coordinates of the axis. Attributes that are structural and are
+    #'   managed by the GeoZarr convention are left out.
+    #' @return A named `list` of attributes.
+    geozarr_attributes = function() {
+      atts <- super$geozarr_attributes()
+      atts["positive"] <- NULL
+      atts
+    },
+
+    #' @description Create the GeoZarr coordinates for this vertical axis. If the
+    #'   coordinate values are not regular and longer than a set minimum, write
+    #'   the coordinates to the group as a new Zarr array if it does not yet
+    #'   exist. This will also include boundary values.
+    #' @param grp An instance of `zarr_group` where the coordinates will be
+    #'   located in the Zarr store. The coordinates will be written to a new
+    #'   Zarr array with the name based on the axis name if it is irregular and
+    #'   long.
+    #' @return An instance of [geozarr::Coordinates] or a descendant class.
+    geozarr_coordinates = function(grp) {
+      len <- self$length
+      vals <- self$values
+
+      unit <- self$attribute("units")
+      positive <- self$attribute("positive")
+      dir <- if (is.na(positive)) "DOWN"
+             else toupper(positive)
+
+      # Attributes that are structural are managed by the convention used
+      # so filter them out before writing. Leave a few that are descriptive of
+      # the data
+      atts <- self$geozarr_attributes()
+
+      # Boundary values
+      bnds <- private$.bounds$values
+      if (!is.null(bnds)) {
+        if (.is_regular(vals - bnds[1L,]) && .is_regular(bnds[2L,] - vals))
+          # Regular, get up and down interval
+          bnds <- c(bnds[1L,1L] - vals[1L], bnds[2L,1L] - vals[1L])
+        else
+          # Irregular, write array to the Zarr group
+          private$.bounds$write_geozarr(grp, paste0(self$name, "_bounds"), self$name)
+      }
+
+      # Irregular
+      if (self$length > geozarr::geozarr_options()$max_explicit) {
+        # Create a Zarr array for the axis coordinates if it does not already exist
+        if (is.null(grp$children[[self$name]])) {
+          ab <- zarr::array_builder$new()
+          ab$shape <- len
+          ab$data_type <- switch(storage.mode(vals),
+                                 "double" = "float64",
+                                 "integer" = "int32")
+          ab$chunk_shape <- len
+          if (len > zarr::zarr_options()$min_compress)
+            ab$add_codec("blosc", list(clevel = 6L))
+          meta <- ab$metadata()
+          meta$attributes <- atts
+          new_array <- try(grp$add_array(self$name, meta), silent = TRUE)
+          if (inherits(new_array, "try-error"))
+            stop("Could not create Zarr array with name", self$name, call. = FALSE)
+          new_array$write(vals)
+        }
+      }
+
+      geozarr::CoordinatesIrregular$new(self$name, dir, unit, vals, bnds)
     }
   ),
   active = list(

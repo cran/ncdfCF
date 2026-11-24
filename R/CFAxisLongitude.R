@@ -97,8 +97,9 @@ CFAxisLongitude <- R6::R6Class("CFAxisLongitude",
       else {
         rng <- range(rng)
         if (self$has_resource) {
-          ax <- CFAxisLongitude$new(private$.NCobj, group = group, start = private$.NC_map$start + rng[1L] - 1L,
-                                    count = rng[2L] - rng[1L] + 1L, attributes = self$attributes)
+          nc <- private$to_nc_indices(rng[1L], rng[2L] - rng[1L] + 1L)
+          ax <- CFAxisLongitude$new(private$.NCobj, group = group, start = nc$start,
+                                    count = nc$count, attributes = self$attributes)
           if (nzchar(name))
             ax$name <- name
         } else {
@@ -119,9 +120,9 @@ CFAxisLongitude <- R6::R6Class("CFAxisLongitude",
     #' @param group The [CFGroup] where the copy of this axis will live.
     #' @return A new `CFAxisLongitude` instance with values from this axis and
     #'   the `from` axis appended.
-    append = function(from) {
+    append = function(from, group) {
       if (super$can_append(from) && .c_is_monotonic(self$values, from$values)) {
-        ax <- CFAxisLongitude$new(self$name, group = group, values = c(private$values, from$values),
+        ax <- CFAxisLongitude$new(self$name, group = group, values = c(self$values, from$values),
                                   attributes = self$attributes)
 
         if (!is.null(private$.bounds)) {

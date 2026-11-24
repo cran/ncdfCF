@@ -96,7 +96,8 @@ NCGroup <- R6::R6Class("NCGroup",
     #'   object to the caller. Usually this method is called programmatically.
     #' @param name The name of an object, with an optional absolute or relative
     #'   group path from the calling group. The object must be an NC group,
-    #'   dimension or variable.
+    #'   dimension or variable. For dimensions, see also the
+    #'   `find_dimension_by_name()` method.
     #' @return The object with the provided name. If the object is not found,
     #'   returns `NULL`.
     find_by_name = function(name) {
@@ -160,24 +161,43 @@ NCGroup <- R6::R6Class("NCGroup",
           if (!is.null(obj)) return(obj)
         }
 
-        # If still not found, try lateral search
-        .traverse_subgroups <- function(g, level) {
-          obj <- .find_here(g)
-          if (is.null(obj))
-            lapply(g$subgroups, .traverse_subgroups, level = level + 1L)
-          else
-            list(level = level, obj = obj)
+        # If still not found, try lateral search, breadth-first so that the
+        # object at the lowest level is found
+        level <- unname(grp$subgroups)
+        while (length(level)) {
+          for (g in level) {
+            obj <- .find_here(g)
+            if (!is.null(obj)) return(obj)
+          }
+          level <- unname(unlist(lapply(level, function(g) g$subgroups)))
         }
-
-        res <- lapply(grp$subgroups, .traverse_subgroups, level = 1L)
-        res <- res[lengths(res) > 0L]
-        # FIXME: The below takes the first occurrence, rather than the one with the lowest level
-        if (length(res))
-          return(res[[1L]]$obj)
       }
 
       # Give up
       NULL
+    },
+
+    #' @description Find a dimension variable by its name. Dimensions are scoped
+    #'   differently than other out-of-group objects - specifically, dimensions
+    #'   are visible in all child groups. Given the name of a dimension
+    #'   variable, possibly preceded by an absolute or relative group path,
+    #'   return the dimension variable to the caller. Usually this method is
+    #'   called programmatically.
+    #' @param name The name of a dimension, with an optional absolute or
+    #'   relative group path from the calling group.
+    #' @return The dimension variable with the provided name. If the dimension
+    #'   variable is not found, returns `NULL`.
+    find_dimvar_by_name = function(name) {
+      if (grepl("/", name))
+        self$find_by_name(name)
+      else {
+        g <- self
+        while (inherits(g, "NCGroup")) {
+          idx <- which(names(g$NCvars) == name)
+          if (length(idx)) return(g$NCvars[[idx]])
+          else g <- g$parent
+        }
+      }
     },
 
     #' @description Find an NC dimension object by its id. Given the id of a
@@ -198,7 +218,7 @@ NCGroup <- R6::R6Class("NCGroup",
         if (length(idx))
           return(self$NCdims[[idx]])
       }
-      if (!is.null(self$parent))
+      if (inherits(self$parent, "NCGroup"))
         return(self$parent$find_dim_by_id(id))
       else
         return(NULL)
@@ -219,9 +239,9 @@ NCGroup <- R6::R6Class("NCGroup",
     #' @param new_name The new name for the NC group.
     #' @return Self, invisibly.
     set_name = function(new_name) {
-      if (new_name != private$.name && is.null(group$parent$find_by_name(new_name)) &&
-          private$.resource$can_write) {
-        RNetCDF::grp.rename.nc(private$.resource$handle, new_name)
+      if (new_name != private$.name && is.null(self$parent$find_by_name(new_name)) &&
+          self$can_write) {
+        RNetCDF::grp.rename.nc(self$handle, new_name)
         private$.name <- new_name
       }
       invisible(self)
@@ -246,21 +266,21 @@ NCGroup <- R6::R6Class("NCGroup",
     #' @description Create a new group as a sub-group of the current group. This
     #' writes the new group to the netCDF resource, but only if it is open for
     #' writing.
+    #' @param name Character string with the name of the sub-group to create.
     #' @param CFgroup The [CFGroup] associated with this NC group.
     #' @return The newly created group as a `NCGroup` instance, invisibly.
-    create_group = function(CFgroup) {
-      # fix this here
-      if (length(nm) != 1L || !.is_valid_name(nm))
-        stop("Argument `nm` must be a single character string with a netCDF-compliant value.", call. = FALSE)
+    create_group = function(name, CFgroup) {
+      if (length(name) != 1L || !.is_valid_name(name))
+        stop("Argument `name` must be a single character string with a netCDF-compliant value", call. = FALSE)
       if (!self$can_write)
-        stop("NetCDF resource is not writeable.", call. = FALSE)
-      if (nm %in% names(self$subgroups))
-        stop("Subgroup with the same name already exists.", call. = FALSE)
+        stop("NetCDF resource is not writeable", call. = FALSE)
+      if (name %in% names(self$subgroups))
+        stop("Subgroup with the same name already exists", call. = FALSE)
 
-      g <- RNetCDF::grp.def.nc(self$handle, nm)
-      grp <- NCGroup$new(id = as.integer(g$self), name = nm, parent = self,
+      g <- RNetCDF::grp.def.nc(self$handle, name)
+      grp <- NCGroup$new(id = as.integer(g$self), name = name, parent = self,
                          resource = private$.resource, CFGroup = CFgroup)
-      self$subgroups <- c(self$subgroups, setNames(list(grp), nm))
+      self$subgroups <- c(self$subgroups, setNames(list(grp), name))
       invisible(grp)
     },
 
@@ -310,7 +330,7 @@ NCGroup <- R6::R6Class("NCGroup",
         if (length(dims)) {
           local_names <- sapply(dims, function(d) d$name)
           parent_names <- sapply(pdims, function(d) d$name)
-          keep <- pdims[!which(parent_names %in% local_names)]
+          keep <- pdims[!(parent_names %in% local_names)]
           append(dims, keep)
         } else
           pdims
